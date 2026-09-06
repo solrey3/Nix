@@ -1,7 +1,20 @@
-{ pkgs, ... }:
+{ hostname, lib, pkgs, ... }:
 
 {
-  home-manager.users.budchris = import ../../home/budchris;
+  # Tango is a headless deployment console; keep browsers, compositors, GUI
+  # applications, fonts, and wallpapers out of its user environment.
+  home-manager.users.budchris =
+    if hostname == "tango" then
+      {
+        imports = [ ../../home/budchris/portable.nix ];
+        home = {
+          username = "budchris";
+          homeDirectory = "/home/budchris";
+          stateVersion = "25.11";
+        };
+      }
+    else
+      import ../../home/budchris;
 
   security.sudo.wheelNeedsPassword = false;
 
@@ -18,8 +31,8 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIoDM7eW9Bq407BN4ZtYMy3CZq0BWqKyEh7GAy6/ydde pi-console@tango"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJVzu8in7Il2n2bVoSKT8OoG+f2ecKtvOZOprTCdQKiQ budchris@tango"
     ];
-    packages = with pkgs; [
-      kdePackages.kate
+    packages = lib.optionals (hostname != "tango") [
+      pkgs.kdePackages.kate
     ];
   };
 }
