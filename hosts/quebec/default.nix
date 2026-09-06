@@ -50,6 +50,7 @@
     environments = {
       plasma = true;
       cosmic = true;
+      hyprland = true;
       sway = true;
     };
   };

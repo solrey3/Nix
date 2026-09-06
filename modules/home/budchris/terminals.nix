@@ -1,7 +1,8 @@
-{ pkgs, ... }:
+{ osConfig ? null, pkgs, ... }:
 
 let
   terminalFont = "JetBrainsMono Nerd Font Mono";
+  ghosttyFontSize = if osConfig != null && osConfig.networking.hostName == "quebec" then 12 else 9;
 in
 {
   home.sessionVariables = {
@@ -44,9 +45,9 @@ in
   };
 
   xdg.configFile."ghostty/config".text = ''
-    theme = Adwaita Dark
+    theme = dark:Tokyo Night Dark,light:Tokyo Night Light
     font-family = ${terminalFont}
-    font-size = 9
+    font-size = ${toString ghosttyFontSize}
     # Slight transparency keeps text readable while letting the wallpaper show.
     background-opacity = 0.80
     gtk-titlebar = false
@@ -62,6 +63,10 @@ in
   '';
 
   xdg.configFile."alacritty/alacritty.toml".text = ''
+    [general]
+    live_config_reload = true
+    import = [ "/home/budchris/.cache/tokyo-night/alacritty.toml" ]
+
     [window]
     dynamic_title = true
 
