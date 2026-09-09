@@ -1,4 +1,4 @@
-{ inputs, pkgs, self, ... }:
+{ inputs, lib, pkgs, self, ... }:
 
 let
   piConsole = self.packages.${pkgs.system}.pi-console;
@@ -43,6 +43,50 @@ in
     # reference to match your vault, and chmod/chown it 0600 pi-console.
     # openai-codex OAuth remains in the console user's auth.json.
     OPENROUTER_API_KEY=op://Homelab/OpenRouter/api-key
+  '';
+
+  # tailscale0 is trusted for other fleet services, so filter the console in an
+  # earlier input hook. Update these stable device addresses after re-enrollment.
+  networking.nftables = {
+    enable = true;
+    tables.pi-console-access = {
+      family = "inet";
+      content = ''
+        set allowed_ipv4 {
+          type ipv4_addr
+          elements = {
+            100.88.4.72,     # iPhone 13
+            100.65.222.81,   # oscar
+            100.102.213.120, # quebec
+            100.88.89.21     # bravo
+          }
+        }
+
+        set allowed_ipv6 {
+          type ipv6_addr
+          elements = {
+            fd7a:115c:a1e0::c301:448, # iPhone 13
+            fd7a:115c:a1e0::d532:de53, # oscar
+            fd7a:115c:a1e0::5232:d579, # quebec
+            fd7a:115c:a1e0::1832:5918  # bravo
+          }
+        }
+
+        chain input {
+          type filter hook input priority -10; policy accept;
+          iifname "tailscale0" tcp dport 3210 ip saddr != @allowed_ipv4 drop
+          iifname "tailscale0" tcp dport 3210 ip6 saddr != @allowed_ipv6 drop
+        }
+      '';
+    };
+  };
+
+  # Remove the emergency runtime override used during initial bring-up. The
+  # service's PATH and SHELL are fully declared below, so retaining a mutable
+  # /run drop-in would make the effective unit differ from this module.
+  system.activationScripts.removePiConsoleRuntimeOverride = lib.stringAfter [ "etc" ] ''
+    rm -f /run/systemd/system/pi-console.service.d/10-path.conf
+    rmdir --ignore-fail-on-non-empty /run/systemd/system/pi-console.service.d 2>/dev/null || true
   '';
 
   systemd.services.pi-console-repository = {
@@ -100,6 +144,12 @@ in
       ExecStart = startPiConsole;
       Restart = "on-failure";
       RestartSec = 3;
+      # Keep runaway agent tools from exhausting the whole 8 GiB droplet.
+      MemoryHigh = "5G";
+      MemoryMax = "6G";
+      MemorySwapMax = "2G";
+      TasksMax = 2048;
+      OOMPolicy = "continue";
       SupplementaryGroups = [ "nixos-repo" ];
       UMask = "0007";
       NoNewPrivileges = true;
@@ -110,6 +160,6 @@ in
     };
   };
 
-  # Port 3210 is intentionally absent from allowedTCPPorts: peers can reach it
-  # through the trusted tailscale0 interface, but the public droplet NIC cannot.
+  # Port 3210 is intentionally absent from allowedTCPPorts: the public droplet
+  # NIC cannot reach it, and the nftables allowlist limits Tailscale access.
 }
