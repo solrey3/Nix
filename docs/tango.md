@@ -45,6 +45,8 @@ http://tango:3210
 
 Each UI thread is a persistent Pi session. The target selector teaches the session to use `budchris@<target>` over Tailscale SSH, while `/srv/nixos` is tango's writable fleet checkout. The UI supports streaming responses, tool activity, aborting work, thread deletion, and mobile layouts.
 
+Tango uses `modules/home/budchris/portable.nix` instead of the desktop Home Manager profile. This keeps browsers, compositors, graphical applications, fonts, and wallpapers out of the headless server closure while retaining the shell, Git, LazyVim, AI, and command-line tooling used for fleet maintenance.
+
 The console uses `openai-codex/gpt-5.6-sol` at medium reasoning by default. If a run fails because the primary model is unavailable, it switches that thread to `openrouter/moonshotai/kimi-k3` at medium reasoning and continues the request from the existing conversation state.
 
 Inspect it with:
