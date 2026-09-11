@@ -27,6 +27,38 @@ let
         }
       ])
     9);
+  waybarWorkspaceNumbers = builtins.genList (i: toString (i + 1)) 5;
+  waybarWorkspaceStatus = pkgs.writeShellApplication {
+    name = "waybar-workspace-status";
+    runtimeInputs = [ pkgs.hyprland pkgs.jq ];
+    text = ''
+      workspace="$1"
+      active="$(hyprctl activeworkspace -j | jq -r .id)"
+      if [ "$active" = "$workspace" ]; then
+        text="[$workspace]"
+        class=active
+      else
+        text=" $workspace "
+        class=inactive
+      fi
+      jq -cn --arg text "$text" --arg class "$class" '{ text: $text, class: $class }'
+    '';
+  };
+  waybarWorkspaceSelect = pkgs.writeShellApplication {
+    name = "waybar-workspace-select";
+    runtimeInputs = [ pkgs.hyprland pkgs.procps ];
+    text = ''
+      workspace="''${1:?workspace number required}"
+      case "$workspace" in
+        1|2|3|4|5) ;;
+        *) echo "invalid workspace: $workspace" >&2; exit 2 ;;
+      esac
+      hyprctl dispatch "hl.dsp.focus({ workspace = $workspace })"
+      # Refresh all workspace labels immediately instead of waiting for their
+      # low-frequency fallback poll.
+      pkill -RTMIN+8 -x .waybar-wrapped 2>/dev/null || true
+    '';
+  };
 in
 {
   config = lib.mkIf enabled {
@@ -121,6 +153,10 @@ in
                 hl.exec_cmd("${pkgs.systemd}/bin/systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE")
                 hl.exec_cmd("${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --start --components=pkcs11,secrets")
                 hl.exec_cmd("${pkgs.hyprpaper}/bin/hyprpaper")
+                -- hyprpaper can start before its layer surface is ready. Apply
+                -- the wallpaper again after startup so the desktop is never
+                -- left with Hyprland's solid fallback background.
+                hl.exec_cmd("${pkgs.bash}/bin/sh -c 'sleep 1; ${pkgs.hyprland}/bin/hyprctl hyprpaper wallpaper ,${wallpaper}'")
                 hl.exec_cmd("${pkgs.hypridle}/bin/hypridle")
                 hl.exec_cmd("${pkgs.waybar}/bin/waybar -c ${config.xdg.configHome}/waybar/config-hyprland -s ${config.xdg.configHome}/waybar/style.css")
                 hl.exec_cmd("${pkgs.networkmanagerapplet}/bin/nm-applet --indicator")
@@ -141,6 +177,13 @@ in
           { leaf = "fade"; enabled = true; speed = 3; bezier = "easeOut"; }
           { leaf = "workspaces"; enabled = true; speed = 4; bezier = "easeOut"; style = "slide"; }
         ];
+
+        # Three-finger horizontal swipes move between adjacent workspaces.
+        gesture = {
+          fingers = 3;
+          direction = "horizontal";
+          action = "workspace";
+        };
 
         bind = [
           { _args = [ "SUPER + RETURN" (exec "${pkgs.ghostty}/bin/ghostty") ]; }
@@ -191,18 +234,18 @@ in
 
       "hypr/hypridle.conf".text = ''
         general {
-          lock_cmd = pidof hyprlock || ${pkgs.hyprlock}/bin/hyprlock
-          before_sleep_cmd = loginctl lock-session
-          after_sleep_cmd = hyprctl dispatch dpms on
+          lock_cmd = ${pkgs.procps}/bin/pidof hyprlock || ${pkgs.hyprlock}/bin/hyprlock
+          before_sleep_cmd = ${pkgs.systemd}/bin/loginctl lock-session
+          after_sleep_cmd = ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
         }
         listener {
           timeout = 600
-          on-timeout = loginctl lock-session
+          on-timeout = ${pkgs.systemd}/bin/loginctl lock-session
         }
         listener {
           timeout = 900
-          on-timeout = hyprctl dispatch dpms off
-          on-resume = hyprctl dispatch dpms on
+          on-timeout = ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'
+          on-resume = ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
         }
       '';
 
@@ -212,9 +255,30 @@ in
           path = ${wallpaper}
           blur_passes = 2
         }
+        label {
+          monitor =
+          text = cmd[update:1000] date +"%H:%M"
+          color = rgb(c0caf5)
+          font_size = 64
+          position = 0, 180
+          halign = center
+          valign = center
+        }
+        label {
+          monitor =
+          text = cmd[update:60000] date +"%A, %B %d"
+          color = rgb(a9b1d6)
+          font_size = 20
+          position = 0, 120
+          halign = center
+          valign = center
+        }
         input-field {
           monitor =
           size = 320, 56
+          position = 0, -20
+          halign = center
+          valign = center
           outline_thickness = 2
           outer_color = rgb(7aa2f7)
           inner_color = rgb(1a1b26)
@@ -223,18 +287,16 @@ in
         }
       '';
 
-      "waybar/config-hyprland".text = builtins.toJSON {
+      "waybar/config-hyprland".text = builtins.toJSON ({
         layer = "top";
         position = "top";
         height = 30;
         spacing = 8;
-        modules-left = [ "hyprland/workspaces" ];
+        # Use explicit modules because Waybar's Hyprland workspace buttons did
+        # not dispatch pointer selections reliably on Quebec.
+        modules-left = map (ws: "custom/workspace-${ws}") waybarWorkspaceNumbers;
         modules-center = [ "clock" ];
         modules-right = [ "tray" "network" "bluetooth" "wireplumber" "cpu" "battery" ];
-        "hyprland/workspaces" = {
-          "on-click" = "activate";
-          "persistent-workspaces" = { "*" = 5; };
-        };
         clock.format = "{:%Y-%m-%d %H:%M}";
         network = {
           "format-wifi" = "  {essid} ({signalStrength}%)";
@@ -255,7 +317,18 @@ in
         cpu = { format = "CPU {usage}%"; interval = 5; };
         battery = { format = "{capacity}% {icon}"; };
         tray.spacing = 10;
-      };
+      } // lib.genAttrs (map (ws: "custom/workspace-${ws}") waybarWorkspaceNumbers)
+        (name:
+          let ws = lib.removePrefix "custom/workspace-" name; in {
+            exec = "${waybarWorkspaceStatus}/bin/waybar-workspace-status ${ws}";
+            "on-click" = "${waybarWorkspaceSelect}/bin/waybar-workspace-select ${ws}";
+            # Signals refresh immediately after pointer selection; this poll is
+            # only a fallback for keyboard-initiated workspace changes.
+            signal = 8;
+            interval = 10;
+            "return-type" = "json";
+            tooltip = false;
+          }));
     };
   };
 }
