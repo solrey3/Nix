@@ -114,6 +114,10 @@ in
             shadow.enabled = false;
           };
           animations.enabled = true;
+          group.groupbar = {
+            font_size = 12;
+            height = 24;
+          };
           misc = {
             disable_hyprland_logo = true;
             disable_splash_rendering = true;
