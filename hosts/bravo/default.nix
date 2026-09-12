@@ -1,4 +1,4 @@
-{ config, hostname, pkgs, ... }:
+{ config, hostname, lib, pkgs, ... }:
 
 {
   imports = [
@@ -66,6 +66,7 @@
     environments = {
       plasma = true;
       cosmic = true;
+      hyprland = true;
       sway = true;
     };
   };
@@ -88,16 +89,38 @@
     synology-drive-client
   ];
 
-  home-manager.users.budchris = { pkgs, ... }: {
-    xdg.configFile."autostart/synology-drive.desktop".text = ''
-      [Desktop Entry]
-      Type=Application
-      Name=Synology Drive Client
-      Exec=${pkgs.synology-drive-client}/bin/synology-drive
-      Terminal=false
-      X-GNOME-Autostart-enabled=true
-    '';
-  };
+  home-manager.users.budchris = { pkgs, ... }:
+    let
+      synologyRoot = "${pkgs.synology-drive-client}/opt/Synology/SynologyDrive";
+      synologyDriveLauncher = pkgs.writeShellScript "synology-drive-launcher" ''
+        runtime="$HOME/.SynologyDrive/SynologyDrive.app"
+        source_marker="$runtime/.nix-source"
+
+        if ! ${pkgs.gnugrep}/bin/grep -Fqx ${lib.escapeShellArg synologyRoot} "$source_marker" 2>/dev/null; then
+          ${pkgs.coreutils}/bin/rm -rf "$runtime"
+          ${pkgs.coreutils}/bin/mkdir -p "$HOME/.SynologyDrive"
+          ${pkgs.coreutils}/bin/cp -a ${lib.escapeShellArg "${synologyRoot}/package/cloudstation"} "$runtime"
+          ${pkgs.coreutils}/bin/chmod -R u+w "$runtime"
+          ${pkgs.coreutils}/bin/printf '%s\n' ${lib.escapeShellArg synologyRoot} > "$source_marker"
+        fi
+
+        ${pkgs.coreutils}/bin/rm -f "$HOME/.SynologyDrive/ui.pid"
+        export LD_LIBRARY_PATH=${lib.escapeShellArg "${synologyRoot}/lib"}
+        export QT_QPA_PLATFORM=xcb
+        unset QT_PLUGIN_PATH
+        exec "$runtime/bin/cloud-drive-ui"
+      '';
+    in
+    {
+      xdg.configFile."autostart/synology-drive.desktop".text = ''
+        [Desktop Entry]
+        Type=Application
+        Name=Synology Drive Client
+        Exec=${synologyDriveLauncher}
+        Terminal=false
+        X-GNOME-Autostart-enabled=true
+      '';
+    };
 
   # Change this only after reading the NixOS release notes.
   system.stateVersion = "25.11";

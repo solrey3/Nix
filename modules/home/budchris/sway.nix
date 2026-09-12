@@ -1,7 +1,9 @@
 { lib, pkgs, osConfig ? null, ... }:
 
 let
-  isQuebec = (osConfig.networking.hostName or "") == "quebec";
+  hostName = osConfig.networking.hostName or "";
+  isBravo = hostName == "bravo";
+  isQuebec = hostName == "quebec";
   quebecWallpaper = ./wallpapers/quebec-wall-11-inspired.svg;
 
   swayLaptopPowerProfile = pkgs.writeShellScript "sway-laptop-power-profile" ''
@@ -79,6 +81,51 @@ let
     ${pkgs.procps}/bin/pkill waybar || exec ${pkgs.waybar}/bin/waybar
   '';
 
+  screenshotRegion = pkgs.writeShellScriptBin "desktop-screenshot-region" ''
+    set -eu
+    dir="$HOME/Pictures/Screenshots"
+    mkdir -p "$dir"
+    file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
+    geometry="$(${pkgs.slurp}/bin/slurp)"
+    ${pkgs.grim}/bin/grim -g "$geometry" "$file"
+    ${pkgs.wl-clipboard}/bin/wl-copy < "$file"
+    ${pkgs.libnotify}/bin/notify-send "Screenshot copied" "$file"
+  '';
+
+  screenshotOutput = pkgs.writeShellScriptBin "desktop-screenshot-output" ''
+    set -eu
+    dir="$HOME/Pictures/Screenshots"
+    mkdir -p "$dir"
+    file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
+    ${pkgs.grim}/bin/grim "$file"
+    ${pkgs.wl-clipboard}/bin/wl-copy < "$file"
+    ${pkgs.libnotify}/bin/notify-send "Screenshot copied" "$file"
+  '';
+
+  screenshotAnnotate = pkgs.writeShellScriptBin "desktop-screenshot-annotate" ''
+    set -eu
+    dir="$HOME/Pictures/Screenshots"
+    mkdir -p "$dir"
+    file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
+    geometry="$(${pkgs.slurp}/bin/slurp)"
+    ${pkgs.grim}/bin/grim -g "$geometry" "$file"
+    exec ${pkgs.tensaku}/bin/tensaku "$file"
+  '';
+
+  swayAppKeys = ''
+    ### Shared desktop application bindings
+    bindsym $mod+Shift+b exec ${pkgs.xdg-utils}/bin/xdg-open https://www.google.com
+    bindsym $mod+Shift+f exec ${pkgs.xdg-utils}/bin/xdg-open "$HOME"
+    bindsym $mod+Shift+o exec ${pkgs.obsidian}/bin/obsidian
+    bindsym $mod+Ctrl+s exec ${pkgs.localsend}/bin/localsend_app
+    bindsym $mod+Shift+Mod1+m exec ${pkgs.ghostty}/bin/ghostty -e ${pkgs.cliamp}/bin/cliamp
+    bindsym $mod+Shift+t exec tokyo-night-toggle
+    bindsym $mod+Ctrl+u exec ${pkgs.ghostty}/bin/ghostty -e ${pkgs.dua}/bin/dua i "$HOME"
+    bindsym Print exec desktop-screenshot-region
+    bindsym Shift+Print exec desktop-screenshot-output
+    bindsym Ctrl+Print exec desktop-screenshot-annotate
+  '';
+
   swayStatusBar = ''
     bar {
         position top
@@ -113,7 +160,7 @@ let
     # Start the GNOME Keyring daemon. PAM (via sddm.enableGnomeKeyring)
     # already unlocks the keyring at login; this just ensures the daemon
     # is running so libsecret clients (Cursor, browsers, …) can connect.
-    exec ${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --start --components=pkcs11,secrets,ssh
+    exec ${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --start --components=pkcs11,secrets
   '' + ''
     # Status bar and system tray. Waybar's tray hosts NetworkManager, Proton VPN,
     # Bluetooth, and other StatusNotifier/AppIndicator applications.
@@ -191,8 +238,9 @@ bindsym XF86Sleep exec ${pkgs.systemd}/bin/systemctl suspend
 '';
 in
 {
-  home.sessionVariables = {
-    # Scale GTK apps 1.5× for better readability on this display.
+  # Bravo's desktop needs larger GTK UI elements. Keep this host-specific so
+  # the shared Home Manager profile does not scale every Sway/Hyprland host.
+  home.sessionVariables = lib.optionalAttrs isBravo {
     GDK_SCALE = "1.5";
   };
 
@@ -200,6 +248,9 @@ in
     blueman
     networkmanagerapplet
     proton-vpn
+    screenshotAnnotate
+    screenshotOutput
+    screenshotRegion
     wdisplays
   ];
 
@@ -214,7 +265,7 @@ in
       "set $term ${pkgs.ghostty}/bin/ghostty${swayDisplay}${swayTrackpad}${swayLaptopKeys}"
       swayKeyboardLogout
       "bindsym $mod+Shift+c exec ${swayWaybarToggle}"
-      swayAutostart
+      "${swayAutostart}${swayAppKeys}"
     ]
     (builtins.readFile "${pkgs.sway-unwrapped}/etc/sway/config");
 
@@ -277,6 +328,8 @@ in
   '';
 
   xdg.configFile."waybar/style.css".text = ''
+    @import url("file:///home/budchris/.cache/tokyo-night/waybar.css");
+
     * {
       border: none;
       border-radius: 0;
@@ -286,8 +339,8 @@ in
     }
 
     window#waybar {
-      background: #323232;
-      color: #ffffff;
+      background: @tn_background;
+      color: @tn_foreground;
     }
 
     #workspaces button,
@@ -302,13 +355,13 @@ in
     }
 
     #workspaces button {
-      color: #cccccc;
+      color: @tn_foreground;
     }
 
     #workspaces button.focused,
     #workspaces button.active {
-      background: #5c5c5c;
-      color: #ffffff;
+      background: @tn_selection;
+      color: @tn_foreground;
     }
 
     #network.disconnected,
@@ -318,7 +371,7 @@ in
     #power-profiles-daemon.power-saver,
     #battery.warning,
     #battery.critical {
-      color: #ffcc66;
+      color: @tn_warning;
     }
   '';
 }

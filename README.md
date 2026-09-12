@@ -45,7 +45,7 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | Host | Role | Main configuration |
 | --- | --- | --- |
 | `alpha` | Appliance music player | i3/XFCE, MPD, NFS music library, Tailscale |
-| `bravo` | NVIDIA desktop and media server | Plasma, COSMIC, Sway, Docker, VPN tools, Jellyfin, Navidrome |
+| `bravo` | NVIDIA desktop and media server | Plasma, COSMIC, Hyprland, Sway, Docker, VPN tools, Jellyfin, Navidrome |
 | `charlie` | 2017 13-inch MacBook Pro (MacBookPro14,1), NixOS | Sway, laptop power management, Docker, Tailscale |
 | `delta` | 2022 M2 MacBook Air, macOS | nix-darwin and Home Manager; closed-clamshell external-display setup |
 | `echo` | Raspberry Pi 5 | Standalone aarch64-linux Home Manager profile |
@@ -56,7 +56,7 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | `november` | A1347 Mac mini, NixOS | XFCE/i3, Docker, Tailscale |
 | `papa` | Beelink SER5 MAX, NixOS | Sway, Steam, Docker, Tailscale |
 | `oscar` | Laptop/workstation | Plasma, COSMIC, Sway, laptop power management, Docker, VPN tools |
-| `quebec` | Framework 13 AMD laptop/workstation | Plasma, COSMIC, Sway, laptop power/audio configuration, Docker, VPN tools |
+| `quebec` | Framework 13 AMD laptop/workstation | Plasma, COSMIC, Hyprland, Sway, laptop power/audio configuration, Docker, VPN tools |
 | `kilo` | k3s bootstrap server and worker | Initializes the embedded-etcd cluster and deploys homelab manifests |
 | `lima` | k3s server and worker | Joins the control plane initialized by `kilo` |
 | `mike` | k3s server and worker | Joins the control plane initialized by `kilo` |
@@ -133,7 +133,7 @@ All hosts receive the common module, which configures:
 - flakes, other shared Nix settings, and the local overlay
 - Home Manager's NixOS module
 
-The desktop module supports Plasma 6, COSMIC, and Sway with SDDM. `bravo`, `oscar`, and `quebec` enable all three and default to Plasma. It also configures PipeWire, portals, printing, Firefox, Steam, and desktop keyring integration.
+The desktop module supports Plasma 6, COSMIC, Hyprland, and Sway with SDDM. `bravo` and `quebec` enable all four; `oscar` enables Plasma, COSMIC, and Sway. All three default to Plasma. The module also configures PipeWire, portals, printing, Firefox, Steam, and desktop keyring integration.
 
 The primary workstations (`bravo`, `oscar`, and `quebec`) additionally enable 1Password, Docker, Tailscale, Proton VPN, and WireGuard tools. Nicotine+ and Transmission run in a dedicated network namespace that fails closed unless traffic can leave through Proton VPN's `proton0` interface. Other desktop hosts use smaller role-specific combinations of Docker and Tailscale.
 
@@ -151,7 +151,7 @@ The `budchris` account and Home Manager profile are shared by the configured hos
 - Nicotine+ and Transmission launchers for the VPN-only namespace
 - monitoring, search, archive, media, and general command-line utilities
 
-Ghostty is the preferred terminal through `TERMINAL` and `xdg-terminal-exec`. LazyVim plugins are installed by `lazy.nvim` on first launch.
+Ghostty is the preferred terminal through `TERMINAL` and `xdg-terminal-exec`. LazyVim plugins are installed by `lazy.nvim` on first launch. See [Hyprland keybindings](docs/hyprland-keybindings.md) and [Sway keybindings](docs/sway-keybindings.md) for the Wayland desktop controls.
 
 ## Beelink k3s cluster
 

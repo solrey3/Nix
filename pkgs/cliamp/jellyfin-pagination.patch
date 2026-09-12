@@ -1,0 +1,34 @@
+--- a/internal/embyapi/client.go
++++ b/internal/embyapi/client.go
+@@ -388,9 +388,22 @@
+-	var resp itemsResponseDTO
+-	if err := c.get("/Items", params, &resp); err != nil {
+-		return nil, err
+-	}
+-
+-	out := make([]Album, 0, len(resp.Items))
+-	for _, it := range resp.Items {
+-		out = append(out, albumFromItem(it))
+-	}
++	// Large Jellyfin libraries can take longer than the HTTP timeout and use
++	// excessive server memory when /Items is requested without a limit. Fetch
++	// bounded pages instead; Jellyfin applies the requested stable sort before
++	// StartIndex and Limit.
++	const pageSize = 200
++	out := make([]Album, 0, pageSize)
++	for startIndex := 0; ; {
++		params.Set("startIndex", strconv.Itoa(startIndex))
++		params.Set("limit", strconv.Itoa(pageSize))
++
++		var resp itemsResponseDTO
++		if err := c.get("/Items", params, &resp); err != nil {
++			return nil, err
++		}
++		for _, it := range resp.Items {
++			out = append(out, albumFromItem(it))
++		}
++		if len(resp.Items) < pageSize {
++			break
++		}
++		startIndex += len(resp.Items)
++	}
