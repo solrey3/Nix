@@ -200,6 +200,16 @@ in
           { _args = [ "SUPER + SHIFT + J" (lua ''hl.dsp.window.move({ direction = "down" })'') ]; }
           { _args = [ "SUPER + SHIFT + K" (lua ''hl.dsp.window.move({ direction = "up" })'') ]; }
           { _args = [ "SUPER + SHIFT + L" (lua ''hl.dsp.window.move({ direction = "right" })'') ]; }
+          # Groups are tabbed containers. Directional bindings move the focused
+          # window into a neighboring group, creating one when needed.
+          { _args = [ "SUPER + G" (lua "hl.dsp.group.toggle()") ]; }
+          { _args = [ "SUPER + TAB" (lua "hl.dsp.group.next()") ]; }
+          { _args = [ "SUPER + SHIFT + TAB" (lua "hl.dsp.group.prev()") ]; }
+          { _args = [ "SUPER + ALT + H" (lua ''hl.dsp.window.move({ into_or_create_group = "left" })'') ]; }
+          { _args = [ "SUPER + ALT + J" (lua ''hl.dsp.window.move({ into_or_create_group = "down" })'') ]; }
+          { _args = [ "SUPER + ALT + K" (lua ''hl.dsp.window.move({ into_or_create_group = "up" })'') ]; }
+          { _args = [ "SUPER + ALT + L" (lua ''hl.dsp.window.move({ into_or_create_group = "right" })'') ]; }
+          { _args = [ "SUPER + CTRL + G" (lua "hl.dsp.window.move({ out_of_group = true })") ]; }
           { _args = [ "SUPER + CTRL + L" (exec "${pkgs.hyprlock}/bin/hyprlock") ]; }
           { _args = [ "SUPER + SHIFT + B" (exec "${pkgs.xdg-utils}/bin/xdg-open https://www.google.com") ]; }
           { _args = [ "SUPER + SHIFT + F" (exec "${pkgs.xdg-utils}/bin/xdg-open $HOME") ]; }
