@@ -2,7 +2,13 @@
 
 let
   terminalFont = "JetBrainsMono Nerd Font Mono";
-  ghosttyFontSize = if osConfig != null && osConfig.networking.hostName == "quebec" then 12 else 9;
+  isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
+  ghosttyFontSize = if isQuebec then 10 else 9;
+  # Hyprland does not advertise a reliable desktop color scheme, which made
+  # Ghostty select the light variant on Quebec. Keep that terminal explicitly
+  # dark and opaque; other hosts may continue following their desktop theme.
+  ghosttyTheme = if isQuebec then "Tokyo Night Dark" else "dark:Tokyo Night Dark,light:Tokyo Night Light";
+  ghosttyBackgroundOpacity = if isQuebec then "1.0" else "0.80";
 in
 {
   home.sessionVariables = {
@@ -45,11 +51,10 @@ in
   };
 
   xdg.configFile."ghostty/config".text = ''
-    theme = dark:Tokyo Night Dark,light:Tokyo Night Light
+    theme = ${ghosttyTheme}
     font-family = ${terminalFont}
     font-size = ${toString ghosttyFontSize}
-    # Slight transparency keeps text readable while letting the wallpaper show.
-    background-opacity = 0.80
+    background-opacity = ${ghosttyBackgroundOpacity}
     gtk-titlebar = false
     confirm-close-surface = false
     # Use a widely available TERM so tmux also works on remote hosts that do

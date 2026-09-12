@@ -53,4 +53,4 @@ Hyprland is available from SDDM on `bravo` and `quebec`.The shared configuration
 | `Shift + Print` | Save and copy the current output |
 | `Ctrl + Print` | Select a region and open it in Tensaku |
 
-Brightness, volume, microphone-mute, and media keys use their standard hardware keys. Waybar shows workspaces and common system status modules. Quebec uses its native `2880x1920@120Hz` panel mode at 1.5× scale.
+Brightness, volume, microphone-mute, and media keys use their standard hardware keys. Waybar shows workspaces and common system status modules; click a workspace number or swipe horizontally with three fingers to switch workspaces. Quebec uses its native `2880x1920@120Hz` panel mode at 1.5× scale.
