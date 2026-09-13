@@ -75,6 +75,7 @@
     git
     jq
     inputs.deploy-rs.packages.${pkgs.system}.default
+    pi-coding-agent
     tmux
   ];
 
