@@ -51,3 +51,14 @@ Groups are tabbed containers; their tabs appear above the grouped window.
 | `Ctrl + Print` | Select a region and open it in Tensaku |
 
 Brightness, volume, microphone-mute, and media keys use their standard hardware keys. Waybar shows workspaces and common system status modules; click a workspace number or swipe horizontally with three fingers to switch workspaces. Quebec uses its native `2880x1920@120Hz` panel mode at 1.5× scale.
+
+
+## Config location
+
+The generated Hyprland config is managed in:
+
+```text
+modules/home/budchris/hyprland.nix
+```
+
+Use that module as the source of truth when changing bindings, then update this quick reference in the same change.
