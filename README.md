@@ -28,11 +28,10 @@ modules/
     users/budchris.nix       User account and Home Manager integration
   darwin/                    Shared nix-darwin settings and applications
   home/budchris/             Home Manager applications and dotfiles
-apps/pi-console/             Threaded Pi SDK web application source
 kubernetes/homelab.yaml      Cluster media, DNS, and homepage workloads
 docs/                        Installation, desktop, and cluster guides
 overlays/                    Local nixpkgs overlay
-pkgs/                        Local package outputs, including Pi Console
+pkgs/                        Local package outputs
 ```
 
 NixOS host directories normally contain `default.nix`, a machine-generated
@@ -60,9 +59,9 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | `kilo` | k3s bootstrap server and worker | Initializes the embedded-etcd cluster and deploys homelab manifests |
 | `lima` | k3s server and worker | Joins the control plane initialized by `kilo` |
 | `mike` | k3s server and worker | Joins the control plane initialized by `kilo` |
-| `tango` | Fleet command center | deploy-rs, Tailscale, 1Password CLI, and the threaded Pi Console web UI |
+| `tango` | Fleet command center | deploy-rs, Tailscale, 1Password CLI, and command-line fleet administration |
 
-Tango provisioning and command-console operations are documented in [docs/tango.md](docs/tango.md).
+Tango provisioning and fleet operations are documented in [docs/tango.md](docs/tango.md).
 
 ## Build and deploy
 

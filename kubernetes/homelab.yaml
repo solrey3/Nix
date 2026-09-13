@@ -416,13 +416,13 @@ spec:
               value: America/New_York
             - name: FTLCONF_dns_listeningMode
               value: all
-            # Create network/pihole-admin before first use to enable login.
+            # Fail closed until network/pihole-admin has been provisioned.
             - name: FTLCONF_webserver_api_password
               valueFrom:
                 secretKeyRef:
                   name: pihole-admin
                   key: password
-                  optional: true
+                  optional: false
           ports:
             - name: dns-tcp
               containerPort: 53
