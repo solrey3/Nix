@@ -14,6 +14,8 @@
     ./starship.nix
     ./sway.nix
     ./terminals.nix
+    ./theme.nix
+    ./hyprland.nix
     ./wallpaper.nix
   ];
 

@@ -9,5 +9,6 @@
 { pkgs }:
 
 {
-  pi-console = pkgs.callPackage ./pi-console { };
+  aether = pkgs.callPackage ./aether { };
+  tensaku = pkgs.callPackage ./tensaku { };
 }

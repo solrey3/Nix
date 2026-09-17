@@ -17,6 +17,7 @@ This flake installs the upstream default Sway config for `budchris`, with the te
 | --- | --- |
 | `Super + Enter` | Open Ghostty terminal |
 | `Super + d` | Open app launcher (`wmenu-run`) |
+| `Super + n` | Open Nautilus file manager |
 | `Super + Shift + q` | Kill focused window |
 | `Super + Shift + c` | Toggle Waybar off/on |
 | `Super + Shift + e`, then `Enter` | Exit Sway session with keyboard confirmation |

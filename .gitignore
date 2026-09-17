@@ -36,3 +36,6 @@ id_ed25519
 
 # Tool caches
 .cache/
+
+# Local plaintext machine/login notes
+.illmatic-login
