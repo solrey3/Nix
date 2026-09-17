@@ -9,6 +9,7 @@
     ./editors.nix
     ./fonts.nix
     ./git.nix
+    ./hyprland.nix
     ./lazyvim.nix
     ./starship.nix
     ./sway.nix
