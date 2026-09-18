@@ -1,4 +1,4 @@
-{ config, lib, osConfig ? null, pkgs, ... }:
+{ lib, osConfig ? null, pkgs, ... }:
 
 let
   enabled = osConfig != null && (osConfig.custom.desktop.environments.hyprland or false);
@@ -27,38 +27,6 @@ let
         }
       ])
     9);
-  waybarWorkspaceNumbers = builtins.genList (i: toString (i + 1)) 5;
-  waybarWorkspaceStatus = pkgs.writeShellApplication {
-    name = "waybar-workspace-status";
-    runtimeInputs = [ pkgs.hyprland pkgs.jq ];
-    text = ''
-      workspace="$1"
-      active="$(hyprctl activeworkspace -j | jq -r .id)"
-      if [ "$active" = "$workspace" ]; then
-        text="[$workspace]"
-        class=active
-      else
-        text=" $workspace "
-        class=inactive
-      fi
-      jq -cn --arg text "$text" --arg class "$class" '{ text: $text, class: $class }'
-    '';
-  };
-  waybarWorkspaceSelect = pkgs.writeShellApplication {
-    name = "waybar-workspace-select";
-    runtimeInputs = [ pkgs.hyprland pkgs.procps ];
-    text = ''
-      workspace="''${1:?workspace number required}"
-      case "$workspace" in
-        1|2|3|4|5) ;;
-        *) echo "invalid workspace: $workspace" >&2; exit 2 ;;
-      esac
-      hyprctl dispatch "hl.dsp.focus({ workspace = $workspace })"
-      # Refresh all workspace labels immediately instead of waiting for their
-      # low-frequency fallback poll.
-      pkill -RTMIN+8 -x .waybar-wrapped 2>/dev/null || true
-    '';
-  };
 in
 {
   config = lib.mkIf enabled {
@@ -74,7 +42,6 @@ in
       libnotify
       playerctl
       slurp
-      waybar
       wl-clipboard
     ];
 
@@ -162,9 +129,10 @@ in
                 -- left with Hyprland's solid fallback background.
                 hl.exec_cmd("${pkgs.bash}/bin/sh -c 'sleep 1; ${pkgs.hyprland}/bin/hyprctl hyprpaper wallpaper ,${wallpaper}'")
                 hl.exec_cmd("${pkgs.hypridle}/bin/hypridle")
-                hl.exec_cmd("${pkgs.waybar}/bin/waybar -c ${config.xdg.configHome}/waybar/config-hyprland -s ${config.xdg.configHome}/waybar/style.css")
+                hl.exec_cmd("${pkgs.quickshell}/bin/qs -n -c budchris")
                 hl.exec_cmd("${pkgs.networkmanagerapplet}/bin/nm-applet --indicator")
                 hl.exec_cmd("${pkgs.blueman}/bin/blueman-applet")
+                hl.exec_cmd("${pkgs.proton-vpn}/bin/protonvpn-app --start-minimized")
                 ${lib.optionalString isBravo ''
                   hl.exec_cmd("${pkgs.bash}/bin/sh -c 'sleep 1; ${pkgs.systemd}/bin/systemctl --user restart app-synology\\x2ddrive@autostart.service'")
                 ''}
@@ -304,48 +272,6 @@ in
         }
       '';
 
-      "waybar/config-hyprland".text = builtins.toJSON ({
-        layer = "top";
-        position = "top";
-        height = 30;
-        spacing = 8;
-        # Use explicit modules because Waybar's Hyprland workspace buttons did
-        # not dispatch pointer selections reliably on Quebec.
-        modules-left = map (ws: "custom/workspace-${ws}") waybarWorkspaceNumbers;
-        modules-center = [ "clock" ];
-        modules-right = [ "tray" "network" "bluetooth" "wireplumber" "cpu" "battery" ];
-        clock.format = "{:%Y-%m-%d %H:%M}";
-        network = {
-          "format-wifi" = "  {essid} ({signalStrength}%)";
-          "format-ethernet" = "󰈀  {ipaddr}/{cidr}";
-          "format-disconnected" = "󰖪  disconnected";
-          "on-click" = "${pkgs.networkmanagerapplet}/bin/nm-connection-editor";
-        };
-        bluetooth = {
-          format = " {status}";
-          "format-connected" = " {device_alias}";
-          "on-click" = "${pkgs.blueman}/bin/blueman-manager";
-        };
-        wireplumber = {
-          format = "  {volume}%";
-          "format-muted" = "  muted";
-          "on-click" = "${pkgs.pavucontrol}/bin/pavucontrol";
-        };
-        cpu = { format = "CPU {usage}%"; interval = 5; };
-        battery = { format = "{capacity}% {icon}"; };
-        tray.spacing = 10;
-      } // lib.genAttrs (map (ws: "custom/workspace-${ws}") waybarWorkspaceNumbers)
-        (name:
-          let ws = lib.removePrefix "custom/workspace-" name; in {
-            exec = "${waybarWorkspaceStatus}/bin/waybar-workspace-status ${ws}";
-            "on-click" = "${waybarWorkspaceSelect}/bin/waybar-workspace-select ${ws}";
-            # Signals refresh immediately after pointer selection; this poll is
-            # only a fallback for keyboard-initiated workspace changes.
-            signal = 8;
-            interval = 10;
-            "return-type" = "json";
-            tooltip = false;
-          }));
     };
   };
 }

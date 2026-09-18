@@ -10,12 +10,12 @@
     ./fonts.nix
     ./git.nix
     ./hyprland.nix
+    ./quickshell.nix
     ./lazyvim.nix
     ./starship.nix
     ./sway.nix
     ./terminals.nix
     ./theme.nix
-    ./hyprland.nix
     ./wallpaper.nix
   ];
 
