@@ -52,7 +52,9 @@ Groups are tabbed containers; their tabs appear above the grouped window.
 | `Shift + Print` | Save and copy the current output |
 | `Ctrl + Print` | Select a region and open it in Tensaku |
 
-Brightness, volume, microphone-mute, and media keys use their standard hardware keys. Waybar shows workspaces and common system status modules; click a workspace number or swipe horizontally with three fingers to switch workspaces. Quebec uses its native `2880x1920@120Hz` panel mode at 1.5× scale.
+Brightness, volume, microphone-mute, and media keys use their standard hardware keys. Quickshell provides the panel, application tray, and notification center. The panel shows workspaces, date and time, NetworkManager, Bluetooth, CPU, memory, disk, volume, battery, and notifications. Its application tray hosts Proton VPN, NetworkManager, Blueman, 1Password, and other StatusNotifier/AppIndicator applications.
+
+Click a workspace number or swipe horizontally with three fingers to switch workspaces. Left-click the notification indicator to open the notification center; right-click it to toggle do-not-disturb. Right-click the network or Bluetooth indicators to open their full settings applications. Scroll over volume to adjust it, middle-click to mute, or left-click to open `pavucontrol`. Quebec uses its native `2880x1920@120Hz` panel mode at 1.5× scale.
 
 
 ## Config location
@@ -61,6 +63,8 @@ The generated Hyprland config is managed in:
 
 ```text
 modules/home/budchris/hyprland.nix
+modules/home/budchris/quickshell.nix
+modules/home/budchris/quickshell/
 ```
 
 Use that module as the source of truth when changing bindings, then update this quick reference in the same change.
