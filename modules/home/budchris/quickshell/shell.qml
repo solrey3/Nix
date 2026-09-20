@@ -3,8 +3,6 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Networking
-import Quickshell.Bluetooth
 import Quickshell.Services.Notifications
 import Quickshell.Services.Pipewire
 import Quickshell.Services.SystemTray
@@ -24,7 +22,6 @@ ShellRoot {
     property color warning: dark ? "#ff9e64" : "#b15c00"
 
     property string drawerPage: ""
-    property int statusPulse: 0
     property real cpuPercent: 0
     property real memoryPercent: 0
     property real diskPercent: 0
@@ -60,32 +57,6 @@ ShellRoot {
                 return values[i].toplevels.values.length > 0;
         }
         return false;
-    }
-
-    function activeNetwork() {
-        statusPulse;
-        const devices = Networking.devices.values;
-        for (let i = 0; i < devices.length; i++) {
-            const networks = devices[i].networks.values;
-            for (let j = 0; j < networks.length; j++) {
-                if (networks[j].connected)
-                    return networks[j].name;
-            }
-            if (devices[i].connected)
-                return devices[i].name;
-        }
-        return "disconnected";
-    }
-
-    function connectedBluetooth() {
-        statusPulse;
-        const devices = Bluetooth.devices.values;
-        const names = [];
-        for (let i = 0; i < devices.length; i++) {
-            if (devices[i].connected)
-                names.push(devices[i].name);
-        }
-        return names;
     }
 
     function bytes(value) {
@@ -165,7 +136,6 @@ ShellRoot {
         running: true
         triggeredOnStart: true
         onTriggered: {
-            root.statusPulse++;
             if (!statsProcess.running)
                 statsProcess.running = true;
         }
@@ -300,37 +270,6 @@ ShellRoot {
                     }
 
                     PanelButton {
-                        label: "NET " + root.activeNetwork()
-                        backgroundColor: "transparent"
-                        activeColor: root.selection
-                        foregroundColor: root.activeNetwork() === "disconnected" ? root.warning : root.foreground
-                        hoverColor: root.surface
-                        active: root.drawerPage === "network"
-                        onClicked: button => {
-                            if (button === Qt.RightButton)
-                                Quickshell.execDetached(["nm-connection-editor"]);
-                            else
-                                root.toggleDrawer("network");
-                        }
-                    }
-
-                    PanelButton {
-                        visible: Bluetooth.defaultAdapter !== null
-                        label: "BT " + (root.connectedBluetooth().length ? root.connectedBluetooth().length : "off")
-                        backgroundColor: "transparent"
-                        activeColor: root.selection
-                        foregroundColor: root.foreground
-                        hoverColor: root.surface
-                        active: root.drawerPage === "bluetooth"
-                        onClicked: button => {
-                            if (button === Qt.RightButton)
-                                Quickshell.execDetached(["blueman-manager"]);
-                            else
-                                root.toggleDrawer("bluetooth");
-                        }
-                    }
-
-                    PanelButton {
                         label: "CPU " + root.cpuPercent.toFixed(0) + "%  MEM " + root.memoryPercent.toFixed(0) + "%  DISK " + root.diskPercent.toFixed(0) + "%"
                         backgroundColor: "transparent"
                         activeColor: root.selection
@@ -372,7 +311,7 @@ ShellRoot {
                     }
 
                     PanelButton {
-                        label: root.doNotDisturb ? "DND" : (root.unreadNotifications ? "NOT " + root.unreadNotifications : "NOT")
+                        label: root.doNotDisturb ? "DND" : (root.unreadNotifications ? "󰂚 " + root.unreadNotifications : "󰂚")
                         backgroundColor: "transparent"
                         activeColor: root.selection
                         foregroundColor: root.unreadNotifications ? root.accent : root.foreground
@@ -419,8 +358,6 @@ ShellRoot {
                         Layout.fillWidth: true
                         text: root.drawerPage === "notifications" ? "Notifications" :
                               root.drawerPage === "stats" ? "System statistics" :
-                              root.drawerPage === "network" ? "Network" :
-                              root.drawerPage === "bluetooth" ? "Bluetooth" :
                               root.drawerPage === "battery" ? "Battery" : "Date and time"
                         color: root.accent
                         font.family: "JetBrainsMono Nerd Font Mono"
@@ -465,43 +402,6 @@ ShellRoot {
                     Text { text: "Memory  " + root.bytes(root.memoryUsed) + " / " + root.bytes(root.memoryTotal) + "  (" + root.memoryPercent.toFixed(1) + "%)"; color: root.foreground; font.pixelSize: 15 }
                     Text { text: "Disk /  " + root.bytes(root.diskUsed) + " / " + root.bytes(root.diskTotal) + "  (" + root.diskPercent.toFixed(1) + "%)"; color: root.foreground; font.pixelSize: 15 }
                     Text { text: "Volume  " + root.volumeLabel().replace("VOL ", ""); color: root.foreground; font.pixelSize: 15 }
-                    Item { Layout.fillHeight: true }
-                }
-
-                ColumnLayout {
-                    visible: root.drawerPage === "network"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Text { text: "Connection: " + root.activeNetwork(); color: root.foreground; font.pixelSize: 16 }
-                    Text { text: "Wi-Fi: " + (Networking.wifiEnabled ? "enabled" : "disabled"); color: root.muted; font.pixelSize: 14 }
-                    PanelButton {
-                        label: "Open NetworkManager"
-                        foregroundColor: root.foreground
-                        hoverColor: root.selection
-                        onClicked: button => Quickshell.execDetached(["nm-connection-editor"])
-                    }
-                    Item { Layout.fillHeight: true }
-                }
-
-                ColumnLayout {
-                    visible: root.drawerPage === "bluetooth"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Text {
-                        text: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled ? "Adapter enabled" : "Adapter disabled"
-                        color: root.foreground
-                        font.pixelSize: 16
-                    }
-                    Repeater {
-                        model: root.connectedBluetooth()
-                        Text { required property string modelData; text: "Connected: " + modelData; color: root.muted; font.pixelSize: 14 }
-                    }
-                    PanelButton {
-                        label: "Open Bluetooth manager"
-                        foregroundColor: root.foreground
-                        hoverColor: root.selection
-                        onClicked: button => Quickshell.execDetached(["blueman-manager"])
-                    }
                     Item { Layout.fillHeight: true }
                 }
 

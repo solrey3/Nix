@@ -31,6 +31,18 @@ let
     '';
   };
 
+  quickshellToggle = pkgs.writeShellApplication {
+    name = "quickshell-toggle";
+    runtimeInputs = with pkgs; [ gnugrep quickshell ];
+    text = ''
+      if qs list -c budchris 2>/dev/null | grep -q '^Instance '; then
+        qs kill -c budchris
+      else
+        qs -d -n -c budchris
+      fi
+    '';
+  };
+
   quickshellSystemStats = pkgs.writeShellApplication {
     name = "quickshell-system-stats";
     runtimeInputs = with pkgs; [ coreutils gawk ];
@@ -56,6 +68,7 @@ in
       pkgs.quickshell
       quickshellRegisterTrayItems
       quickshellSystemStats
+      quickshellToggle
     ];
 
     xdg.configFile."quickshell/budchris" = {
