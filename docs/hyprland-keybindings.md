@@ -41,6 +41,7 @@ Groups are tabbed containers; their tabs appear above the grouped window.
 | `Super + Ctrl + S` | Open LocalSend |
 | `Super + Shift + Alt + M` | Open cliamp in Ghostty |
 | `Super + Ctrl + U` | Open dua in Ghostty |
+| `Super + Shift + R` | Toggle Quickshell on or off |
 | `Super + Shift + T` | Toggle the Tokyo Night light/dark theme |
 | `Super + Ctrl + L` | Lock the session |
 
@@ -52,9 +53,9 @@ Groups are tabbed containers; their tabs appear above the grouped window.
 | `Shift + Print` | Save and copy the current output |
 | `Ctrl + Print` | Select a region and open it in Tensaku |
 
-Brightness, volume, microphone-mute, and media keys use their standard hardware keys. Quickshell provides the panel, application tray, and notification center. The panel shows workspaces, date and time, NetworkManager, Bluetooth, CPU, memory, disk, volume, battery, and notifications. Its application tray hosts Proton VPN, NetworkManager, Blueman, 1Password, and other StatusNotifier/AppIndicator applications.
+Brightness, volume, microphone-mute, and media keys use their standard hardware keys. Quickshell provides the panel, application tray, and notification center. The panel shows workspaces, date and time, CPU, memory, disk, volume, battery, and notifications. Its application tray hosts Proton VPN, NetworkManager, Blueman, 1Password, and other StatusNotifier/AppIndicator applications.
 
-Click a workspace number or swipe horizontally with three fingers to switch workspaces. Left-click the notification indicator to open the notification center; right-click it to toggle do-not-disturb. Right-click the network or Bluetooth indicators to open their full settings applications. Scroll over volume to adjust it, middle-click to mute, or left-click to open `pavucontrol`. Quebec uses its native `2880x1920@120Hz` panel mode at 1.5× scale.
+Click a workspace number or swipe horizontally with three fingers to switch workspaces. Left-click the notification bell to open the notification center; right-click it to toggle do-not-disturb. Scroll over volume to adjust it, middle-click to mute, or left-click to open `pavucontrol`. Quebec uses its native `2880x1920@120Hz` panel mode at 1.5× scale.
 
 
 ## Config location

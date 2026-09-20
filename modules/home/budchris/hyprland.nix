@@ -191,6 +191,7 @@ in
           { _args = [ "SUPER + SHIFT + O" (exec "${pkgs.obsidian}/bin/obsidian") ]; }
           { _args = [ "SUPER + CTRL + S" (exec "${pkgs.localsend}/bin/localsend_app") ]; }
           { _args = [ "SUPER + SHIFT + ALT + M" (exec "${pkgs.ghostty}/bin/ghostty -e ${pkgs.cliamp}/bin/cliamp") ]; }
+          { _args = [ "SUPER + SHIFT + R" (exec "quickshell-toggle") ]; }
           { _args = [ "SUPER + SHIFT + T" (exec "tokyo-night-toggle") ]; }
           { _args = [ "SUPER + CTRL + U" (exec "${pkgs.ghostty}/bin/ghostty -e ${pkgs.dua}/bin/dua i $HOME") ]; }
           { _args = [ "PRINT" (exec "desktop-screenshot-region") ]; }
