@@ -38,11 +38,33 @@ ShellRoot {
     property bool toastVisible: false
     property int unreadNotifications: 0
     property bool doNotDisturb: false
+    readonly property var laptopBattery: {
+        const devices = UPower.devices.values;
+        for (let i = 0; i < devices.length; i++) {
+            if (devices[i].isLaptopBattery)
+                return devices[i];
+        }
+        return null;
+    }
 
     function toggleDrawer(page) {
         drawerPage = drawerPage === page ? "" : page;
         if (page === "notifications" && drawerPage === page)
             unreadNotifications = 0;
+    }
+
+    function batteryStateLabel() {
+        if (!UPower.displayDevice)
+            return "Battery status unavailable";
+        switch (UPower.displayDevice.state) {
+        case UPowerDeviceState.Charging: return "Charging";
+        case UPowerDeviceState.Discharging: return "Discharging";
+        case UPowerDeviceState.Empty: return "Empty";
+        case UPowerDeviceState.FullyCharged: return "Fully charged";
+        case UPowerDeviceState.PendingCharge: return "Waiting to charge";
+        case UPowerDeviceState.PendingDischarge: return "Waiting to discharge";
+        default: return "Battery status unknown";
+        }
     }
 
     function switchWorkspace(workspace) {
@@ -303,10 +325,10 @@ ShellRoot {
 
                     PanelButton {
                         visible: UPower.displayDevice && UPower.displayDevice.isPresent && UPower.displayDevice.isLaptopBattery
-                        label: "BAT " + Math.round(UPower.displayDevice.percentage) + "%"
+                        label: "BAT " + Math.round(UPower.displayDevice.percentage * 100) + "%" + (UPower.displayDevice.state === UPowerDeviceState.Charging ? " CHG" : "")
                         backgroundColor: "transparent"
                         activeColor: root.selection
-                        foregroundColor: UPower.displayDevice && UPower.displayDevice.percentage < 20 ? root.warning : root.foreground
+                        foregroundColor: UPower.displayDevice && UPower.displayDevice.percentage < 0.2 ? root.warning : root.foreground
                         hoverColor: root.surface
                         active: root.drawerPage === "battery"
                         onClicked: button => root.toggleDrawer("battery")
@@ -411,8 +433,9 @@ ShellRoot {
                     visible: root.drawerPage === "battery"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Text { text: UPower.displayDevice ? "Charge: " + Math.round(UPower.displayDevice.percentage) + "%" : "No battery"; color: root.foreground; font.pixelSize: 16 }
-                    Text { text: UPower.displayDevice ? "Health: " + Math.round(UPower.displayDevice.healthPercentage) + "%" : ""; color: root.muted; font.pixelSize: 14 }
+                    Text { text: UPower.displayDevice ? "Charge: " + Math.round(UPower.displayDevice.percentage * 100) + "%" : "No battery"; color: root.foreground; font.pixelSize: 16 }
+                    Text { text: root.laptopBattery && root.laptopBattery.healthSupported ? "Health: " + Math.round(root.laptopBattery.healthPercentage) + "%" : "Health: unavailable"; color: root.muted; font.pixelSize: 14 }
+                    Text { text: "Status: " + root.batteryStateLabel(); color: root.muted; font.pixelSize: 14 }
                     Text { text: UPower.onBattery ? "Running on battery" : "Connected to AC power"; color: root.muted; font.pixelSize: 14 }
                     Item { Layout.fillHeight: true }
                 }
