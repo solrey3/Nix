@@ -86,7 +86,6 @@
   environment.systemPackages = with pkgs; [
     pavucontrol
     pi-coding-agent
-    signal-desktop
     synology-drive-client
   ];
 

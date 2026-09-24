@@ -45,6 +45,8 @@ in
       libreoffice
       localsend
       mpv
+      signal-desktop
+      telegram-desktop
       tensaku
       xournalpp
     ]) ++ (with pkgs; [

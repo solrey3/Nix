@@ -3,7 +3,7 @@
 let
   terminalFont = "JetBrainsMono Nerd Font Mono";
   isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
-  ghosttyFontSize = if isQuebec then 10 else 9;
+  ghosttyFontSize = 9;
   # Hyprland does not advertise a reliable desktop color scheme, which made
   # Ghostty select the light variant on Quebec. Keep that terminal explicitly
   # dark and opaque; other hosts may continue following their desktop theme.

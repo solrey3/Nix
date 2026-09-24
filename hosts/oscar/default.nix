@@ -39,7 +39,6 @@
 
   environment.systemPackages = with pkgs; [
     pi-coding-agent
-    signal-desktop
   ];
 
   # Change this only after reading the NixOS release notes.

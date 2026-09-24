@@ -165,8 +165,11 @@ in
           { _args = [ "SUPER + F" (lua "hl.dsp.window.fullscreen()") ]; }
           { _args = [ "SUPER + SHIFT + SPACE" (lua ''hl.dsp.window.float({ action = "toggle" })'') ]; }
           # Hold Super and drag with the left/right mouse button to move/resize.
+          # Super+Alt+left-drag provides a touchpad-friendly resize gesture
+          # that does not require holding a secondary click on a clickpad.
           { _args = [ "SUPER + mouse:272" (lua "hl.dsp.window.drag()") { mouse = true; } ]; }
           { _args = [ "SUPER + mouse:273" (lua "hl.dsp.window.resize()") { mouse = true; } ]; }
+          { _args = [ "SUPER + ALT + mouse:272" (lua "hl.dsp.window.resize()") { mouse = true; } ]; }
           { _args = [ "SUPER + H" (lua ''hl.dsp.focus({ direction = "left" })'') ]; }
           { _args = [ "SUPER + J" (lua ''hl.dsp.focus({ direction = "down" })'') ]; }
           { _args = [ "SUPER + K" (lua ''hl.dsp.focus({ direction = "up" })'') ]; }

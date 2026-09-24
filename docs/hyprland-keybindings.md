@@ -12,6 +12,7 @@ Hyprland is available from SDDM on `bravo` and `quebec`. The shared configuratio
 | `Super + Shift + Space` | Toggle floating |
 | `Super + left-drag` | Move a window |
 | `Super + right-drag` | Resize a window |
+| `Super + Alt + left-drag` | Resize a window (touchpad-friendly) |
 | `Super + Shift + Q` | Close the focused window |
 | `Super + 1` … `Super + 9` | Switch to workspace 1–9 |
 | `Super + Shift + 1` … `Super + Shift + 9` | Move the focused window to workspace 1–9 |
