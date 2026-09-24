@@ -70,8 +70,6 @@
   environment.systemPackages = with pkgs; [
     pavucontrol
     pi-coding-agent
-    signal-desktop
-    telegram-desktop
   ];
 
   # Quebec's MPD and rmpc communicate over a local Unix socket. Besides
