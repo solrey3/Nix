@@ -39,6 +39,7 @@ in
       hyprpaper
       hyprpicker
       hyprsunset
+      kdePackages.polkit-kde-agent-1
       libnotify
       playerctl
       slurp
@@ -123,6 +124,7 @@ in
                 hl.exec_cmd("${pkgs.dbus}/bin/dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE")
                 hl.exec_cmd("${pkgs.systemd}/bin/systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE")
                 hl.exec_cmd("${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --start --components=pkcs11,secrets")
+                hl.exec_cmd("${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1")
                 hl.exec_cmd("${pkgs.hyprpaper}/bin/hyprpaper")
                 -- hyprpaper can start before its layer surface is ready. Apply
                 -- the wallpaper again after startup so the desktop is never
@@ -239,6 +241,14 @@ in
       '';
 
       "hypr/hyprlock.conf".text = ''
+        auth {
+          fingerprint {
+            enabled = true
+            ready_message = Scan fingerprint to unlock
+            present_message = Scanning fingerprint...
+            retry_delay = 250
+          }
+        }
         background {
           monitor =
           path = ${wallpaper}
