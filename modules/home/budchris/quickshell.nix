@@ -65,6 +65,10 @@ in
 {
   config = lib.mkIf enabled {
     home.packages = [
+      # Quickshell resolves StatusNotifier icon names through the first hicolor
+      # directory in XDG_DATA_DIRS.  Include its index in the user profile so
+      # application-provided icons (such as Telegram's symbolic icon) resolve.
+      pkgs.hicolor-icon-theme
       pkgs.quickshell
       quickshellRegisterTrayItems
       quickshellSystemStats
