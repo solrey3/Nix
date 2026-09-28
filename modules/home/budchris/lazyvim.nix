@@ -56,6 +56,21 @@ let
     }
     EOF
 
+    cat > $out/lua/plugins/completion.lua <<'EOF'
+    -- Do not interrupt typing with automatic completion suggestions. Completion
+    -- remains available on demand with Ctrl-Space.
+    return {
+      {
+        "saghen/blink.cmp",
+        opts = {
+          completion = {
+            menu = { auto_show = false },
+          },
+        },
+      },
+    }
+    EOF
+
     cat > $out/lua/plugins/markdown.lua <<'EOF'
     -- Use Nixpkgs' marksman. Mason's downloaded marksman is a generic
     -- dynamically linked binary and does not run on NixOS without stub-ld.
