@@ -1,21 +1,28 @@
 { lib, pkgs, osConfig ? null, ... }:
 
 let
-  isQuebec = (osConfig.networking.hostName or "") == "quebec";
-  wallpaper = ./wallpapers/quebec-wall-11-inspired.svg;
-  wallpaperName = "quebec-wall-11-inspired.svg";
+  desktopEnabled = osConfig != null && (osConfig.custom.desktop.enable or false);
+  plasmaEnabled = desktopEnabled && (osConfig.custom.desktop.environments.plasma or false);
+  wallpaper = ./wallpapers/quebec-wall-11-inspired.png;
+  wallpaperName = "quebec-wall-11-inspired.png";
 in
 {
-  config = lib.mkIf isQuebec {
+  config = lib.mkIf desktopEnabled {
     home.file."Pictures/Wallpapers/${wallpaperName}".source = wallpaper;
 
-    xdg.configFile."autostart/quebec-wallpaper.desktop".text = ''
-      [Desktop Entry]
-      Type=Application
-      Name=Quebec wallpaper
-      Comment=Apply the Wall-11 inspired wallpaper in Plasma
-      Exec=${pkgs.runtimeShell} -lc '${pkgs.kdePackages.plasma-workspace}/bin/plasma-apply-wallpaperimage "$HOME/Pictures/Wallpapers/${wallpaperName}" >/dev/null 2>&1 || true'
-      X-KDE-autostart-phase=1
-    '';
+    # Plasma does not consume the Hyprland/Sway wallpaper or GTK dark-mode
+    # configuration. Apply both defaults when Plasma finishes starting.
+    xdg.configFile."autostart/tokyo-night-desktop.desktop" = lib.mkIf plasmaEnabled {
+      text = ''
+        [Desktop Entry]
+        Type=Application
+        Name=Tokyo Night desktop defaults
+        Comment=Apply the dark color scheme and Quebec Wall-11-inspired wallpaper
+        Exec=${pkgs.runtimeShell} -c '${pkgs.kdePackages.plasma-workspace}/bin/plasma-apply-colorscheme BreezeDark >/dev/null 2>&1 || true; ${pkgs.kdePackages.plasma-workspace}/bin/plasma-apply-wallpaperimage ${wallpaper} >/dev/null 2>&1 || true'
+        Terminal=false
+        X-KDE-autostart-phase=1
+        X-GNOME-Autostart-enabled=true
+      '';
+    };
   };
 }

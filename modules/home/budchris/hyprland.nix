@@ -5,9 +5,9 @@ let
   isBravo = osConfig != null && osConfig.networking.hostName == "bravo";
   isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
   nvidia = osConfig != null && lib.elem "nvidia" (osConfig.services.xserver.videoDrivers or [ ]);
-  # hyprpaper and hyprlock reliably decode raster images; the SVG source is
-  # retained alongside this pre-rendered ultrawide wallpaper.
-  wallpaper = ./wallpapers/tokyo-night.png;
+  # hyprpaper and hyprlock reliably decode raster images; retain the SVG source
+  # alongside this rendered Quebec Wall-11-inspired wallpaper.
+  wallpaper = ./wallpapers/quebec-wall-11-inspired.png;
   lua = lib.generators.mkLuaInline;
   exec = command: lua "hl.dsp.exec_cmd(${builtins.toJSON command})";
   workspaces = builtins.concatLists (builtins.genList
@@ -110,6 +110,9 @@ in
           { _args = [ "ELECTRON_OZONE_PLATFORM_HINT" "auto" ]; }
           { _args = [ "XCURSOR_SIZE" "24" ]; }
           { _args = [ "HYPRCURSOR_SIZE" "24" ]; }
+          # Keep GTK applications dark even when a portal has not yet exported
+          # the desktop color-scheme setting.
+          { _args = [ "GTK_THEME" "Adwaita:dark" ]; }
         ] ++ lib.optionals nvidia [
           { _args = [ "LIBVA_DRIVER_NAME" "nvidia" ]; }
           { _args = [ "__GLX_VENDOR_LIBRARY_NAME" "nvidia" ]; }
@@ -125,11 +128,10 @@ in
                 hl.exec_cmd("${pkgs.systemd}/bin/systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE")
                 hl.exec_cmd("${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --start --components=pkcs11,secrets")
                 hl.exec_cmd("${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1")
+                -- Every Hyprland login starts from the declared dark theme;
+                -- the interactive toggle may still switch the live session.
+                hl.exec_cmd("tokyo-night-set dark")
                 hl.exec_cmd("${pkgs.hyprpaper}/bin/hyprpaper")
-                -- hyprpaper can start before its layer surface is ready. Apply
-                -- the wallpaper again after startup so the desktop is never
-                -- left with Hyprland's solid fallback background.
-                hl.exec_cmd("${pkgs.bash}/bin/sh -c 'sleep 1; ${pkgs.hyprland}/bin/hyprctl hyprpaper wallpaper ,${wallpaper}'")
                 hl.exec_cmd("${pkgs.hypridle}/bin/hypridle")
                 hl.exec_cmd("${pkgs.quickshell}/bin/qs -n -c budchris")
                 hl.exec_cmd("${pkgs.networkmanagerapplet}/bin/nm-applet --indicator")
@@ -192,6 +194,7 @@ in
           { _args = [ "SUPER + CTRL + G" (lua "hl.dsp.window.move({ out_of_group = true })") ]; }
           { _args = [ "SUPER + CTRL + L" (exec "${pkgs.hyprlock}/bin/hyprlock") ]; }
           { _args = [ "SUPER + SHIFT + B" (exec "${pkgs.xdg-utils}/bin/xdg-open https://www.google.com") ]; }
+          { _args = [ "SUPER + SHIFT + P" (exec "${pkgs.firefox}/bin/firefox --private-window") ]; }
           { _args = [ "SUPER + SHIFT + F" (exec "${pkgs.xdg-utils}/bin/xdg-open $HOME") ]; }
           { _args = [ "SUPER + SHIFT + O" (exec "${pkgs.obsidian}/bin/obsidian") ]; }
           { _args = [ "SUPER + CTRL + S" (exec "${pkgs.localsend}/bin/localsend_app") ]; }
@@ -217,9 +220,36 @@ in
     };
 
     xdg.configFile = {
+      "fuzzel/fuzzel.ini".text = ''
+        [main]
+        font=JetBrainsMono Nerd Font Mono:size=11
+        width=42
+        lines=10
+        horizontal-pad=16
+        vertical-pad=12
+        inner-pad=8
+        layer=overlay
+
+        [colors]
+        background=1a1b26f2
+        text=c0caf5ff
+        match=7aa2f7ff
+        selection=33467cff
+        selection-text=c0caf5ff
+        selection-match=7aa2f7ff
+        border=414868ff
+
+        [border]
+        width=1
+        radius=6
+      '';
+
       "hypr/hyprpaper.conf".text = ''
-        preload = ${wallpaper}
-        wallpaper = ,${wallpaper}
+        wallpaper {
+          monitor =
+          path = ${wallpaper}
+          fit_mode = cover
+        }
         splash = false
       '';
 

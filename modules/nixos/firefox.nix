@@ -65,6 +65,10 @@
       "toolkit.telemetry.enabled" = false;
       "toolkit.telemetry.server" = "data:,";
       "toolkit.telemetry.unified" = false;
+      # Hyprland's portal may not expose the desktop color-scheme preference
+      # early enough for Firefox's System theme. Explicitly advertise the
+      # configured dark system appearance to Firefox and web content.
+      "ui.systemUsesDarkTheme" = 1;
     };
   };
 }

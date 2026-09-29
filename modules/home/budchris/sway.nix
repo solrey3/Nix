@@ -4,7 +4,7 @@ let
   hostName = osConfig.networking.hostName or "";
   isBravo = hostName == "bravo";
   isQuebec = hostName == "quebec";
-  quebecWallpaper = ./wallpapers/quebec-wall-11-inspired.svg;
+  wallpaper = ./wallpapers/quebec-wall-11-inspired.png;
 
   swayLaptopPowerProfile = pkgs.writeShellScript "sway-laptop-power-profile" ''
     set -eu
@@ -142,15 +142,11 @@ let
     }
   '';
 
-  quebecSwayWallpaperAutostart = lib.optionalString isQuebec ''
-    exec_always ${pkgs.runtimeShell} -lc '${pkgs.procps}/bin/pkill -x swaybg || true; exec ${pkgs.swaybg}/bin/swaybg -i ${quebecWallpaper} -m fill'
+  swayWallpaperAutostart = ''
+    exec_always ${pkgs.runtimeShell} -lc '${pkgs.procps}/bin/pkill -x swaybg || true; exec ${pkgs.swaybg}/bin/swaybg -i ${wallpaper} -m fill'
   '';
 
-  swayLock =
-    if isQuebec then
-      "${pkgs.swaylock}/bin/swaylock -f -i ${quebecWallpaper} -s fill"
-    else
-      "${pkgs.swaylock}/bin/swaylock -f -c 111111";
+  swayLock = "${pkgs.swaylock}/bin/swaylock -f -i ${wallpaper} -s fill";
 
   swayAutostart = ''
     # Export Wayland/Sway environment variables into the D-Bus session and
@@ -167,7 +163,7 @@ let
     exec_always ${pkgs.runtimeShell} -lc '${pkgs.procps}/bin/pkill waybar || true; exec ${pkgs.waybar}/bin/waybar'
     exec_always ${pkgs.runtimeShell} -lc '${pkgs.procps}/bin/pkill -x swayidle || true; exec ${pkgs.swayidle}/bin/swayidle -w timeout 300 "${pkgs.brightnessctl}/bin/brightnessctl -s set 10%" resume "${pkgs.brightnessctl}/bin/brightnessctl -r" timeout 600 "${swayLock}" timeout 900 "${pkgs.sway}/bin/swaymsg output * power off" resume "${pkgs.sway}/bin/swaymsg output * power on" timeout 1800 "${swayIdleSuspend}" before-sleep "${swayLock}" lock "${swayLock}"'
     exec_always ${pkgs.runtimeShell} -lc '${pkgs.procps}/bin/pkill -f "[s]way-laptop-power-profile" || true; exec ${swayLaptopPowerProfile} --watch'
-    ${quebecSwayWallpaperAutostart}exec ${pkgs.networkmanagerapplet}/bin/nm-applet --indicator
+    ${swayWallpaperAutostart}exec ${pkgs.networkmanagerapplet}/bin/nm-applet --indicator
     exec ${pkgs.blueman}/bin/blueman-applet
     exec ${pkgs.proton-vpn}/bin/protonvpn-app --start-minimized
   '';

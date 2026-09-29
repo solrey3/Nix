@@ -4,10 +4,11 @@ let
   terminalFont = "JetBrainsMono Nerd Font Mono";
   isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
   ghosttyFontSize = 9;
-  # Hyprland does not advertise a reliable desktop color scheme, which made
-  # Ghostty select the light variant on Quebec. Keep that terminal explicitly
-  # dark and opaque; other hosts may continue following their desktop theme.
-  ghosttyTheme = if isQuebec then "Tokyo Night Dark" else "dark:Tokyo Night Dark,light:Tokyo Night Light";
+  # Desktop color-scheme discovery is inconsistent outside a full GTK desktop
+  # and can make Ghostty select the light variant. Tokyo Night Dark is the
+  # configured default on every host; the theme toggle still updates GTK and
+  # the other terminal/bar themes.
+  ghosttyTheme = "Tokyo Night Dark";
   ghosttyBackgroundOpacity = if isQuebec then "1.0" else "0.80";
 in
 {

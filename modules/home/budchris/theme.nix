@@ -172,12 +172,19 @@ in
     "ghostty/themes/Tokyo Night Light".text = ghosttyTheme light;
   };
 
+  # A Home Manager activation represents a newly selected configuration, so
+  # restore its declared default instead of preserving a stale light-mode cache
+  # from an older generation. The runtime toggle can still switch the active
+  # session to light mode.
   home.activation.initializeTokyoNight = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if [ ! -e ${lib.escapeShellArg "${themeDir}/mode"} ]; then
-      $DRY_RUN_CMD mkdir -p ${lib.escapeShellArg themeDir}
-      $DRY_RUN_CMD install -m 0644 ${darkAlacritty} ${lib.escapeShellArg "${themeDir}/alacritty.toml"}
-      $DRY_RUN_CMD install -m 0644 ${darkWaybar} ${lib.escapeShellArg "${themeDir}/waybar.css"}
-      $DRY_RUN_CMD printf '%s\n' dark > ${lib.escapeShellArg "${themeDir}/mode"}
-    fi
+    $DRY_RUN_CMD mkdir -p ${lib.escapeShellArg themeDir}
+    $DRY_RUN_CMD install -m 0644 ${darkAlacritty} ${lib.escapeShellArg "${themeDir}/alacritty.toml"}
+    $DRY_RUN_CMD install -m 0644 ${darkWaybar} ${lib.escapeShellArg "${themeDir}/waybar.css"}
+    $DRY_RUN_CMD printf '%s\n' dark > ${lib.escapeShellArg "${themeDir}/mode"}
   '';
+
+  dconf.settings."org/gnome/desktop/interface" = {
+    color-scheme = "prefer-dark";
+    gtk-theme = "Adwaita-dark";
+  };
 }

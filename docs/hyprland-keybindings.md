@@ -36,7 +36,8 @@ Groups are tabbed containers; their tabs appear above the grouped window.
 | --- | --- |
 | `Super + Return` | Open Ghostty |
 | `Super + D` | Open Fuzzel |
-| `Super + Shift + B` | Open the browser |
+| `Super + Shift + B` | Open Firefox (the default browser) |
+| `Super + Shift + P` | Open a Firefox private window |
 | `Super + Shift + F` | Open the home directory |
 | `Super + Shift + O` | Open Obsidian |
 | `Super + Ctrl + S` | Open LocalSend |
