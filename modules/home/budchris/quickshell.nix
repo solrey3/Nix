@@ -31,6 +31,20 @@ let
     '';
   };
 
+  quickshellOpenSynologyDrive = pkgs.writeShellApplication {
+    name = "quickshell-open-synology-drive";
+    text = ''
+      runtime="$HOME/.SynologyDrive/SynologyDrive.app"
+      export LD_LIBRARY_PATH="$runtime/lib"
+      export QT_QPA_PLATFORM=xcb
+      unset QT_PLUGIN_PATH
+
+      # A second invocation signals the existing process over ui.sock and asks
+      # it to show its window, then exits.
+      exec "$runtime/bin/cloud-drive-ui"
+    '';
+  };
+
   quickshellToggle = pkgs.writeShellApplication {
     name = "quickshell-toggle";
     runtimeInputs = with pkgs; [ gnugrep quickshell ];
@@ -71,6 +85,7 @@ in
       pkgs.hicolor-icon-theme
       pkgs.quickshell
       quickshellRegisterTrayItems
+      quickshellOpenSynologyDrive
       quickshellSystemStats
       quickshellToggle
     ];

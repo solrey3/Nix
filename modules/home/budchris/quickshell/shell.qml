@@ -275,17 +275,27 @@ ShellRoot {
                                     anchor.item: trayItem
                                 }
 
+                                Process {
+                                    id: synologyDriveOpener
+                                    command: ["quickshell-open-synology-drive"]
+                                }
+
                                 MouseArea {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                                     onClicked: event => {
-                                        if (event.button === Qt.RightButton && trayItem.modelData.hasMenu)
+                                        if (event.button === Qt.RightButton && trayItem.modelData.hasMenu) {
                                             trayMenu.open();
-                                        else if (event.button === Qt.MiddleButton)
+                                        } else if (event.button === Qt.MiddleButton) {
                                             trayItem.modelData.secondaryActivate();
-                                        else
+                                        } else if (event.button === Qt.LeftButton && trayItem.modelData.id === "cloud-drive-ui") {
+                                            // Synology ignores StatusNotifierItem.Activate. Starting
+                                            // a second UI process asks the existing one to show itself.
+                                            synologyDriveOpener.running = true;
+                                        } else {
                                             trayItem.modelData.activate();
+                                        }
                                     }
                                     onWheel: event => trayItem.modelData.scroll(event.angleDelta.y, false)
                                 }

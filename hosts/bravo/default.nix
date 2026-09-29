@@ -86,6 +86,7 @@
   environment.systemPackages = with pkgs; [
     pavucontrol
     pi-coding-agent
+    strawberry
     synology-drive-client
   ];
 
