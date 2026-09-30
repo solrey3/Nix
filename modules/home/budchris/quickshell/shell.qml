@@ -94,8 +94,32 @@ ShellRoot {
     function volumeLabel() {
         const sink = Pipewire.defaultAudioSink;
         if (!sink || !sink.audio)
-            return "VOL --";
-        return sink.audio.muted ? "VOL muted" : "VOL " + Math.round(sink.audio.volume * 100) + "%";
+            return "--";
+        return sink.audio.muted ? "muted" : Math.round(sink.audio.volume * 100) + "%";
+    }
+
+    function volumeIcon() {
+        const sink = Pipewire.defaultAudioSink;
+        if (!sink || !sink.audio || sink.audio.muted)
+            return "󰝟";
+        if (sink.audio.volume === 0)
+            return "󰕿";
+        return sink.audio.volume < 0.5 ? "󰖀" : "󰕾";
+    }
+
+    function batteryIcon() {
+        const battery = UPower.displayDevice;
+        if (!battery)
+            return "󰂑";
+        if (battery.state === UPowerDeviceState.Charging)
+            return "󰂄";
+        if (battery.percentage < 0.2)
+            return "󰁺";
+        if (battery.percentage < 0.5)
+            return "󰁼";
+        if (battery.percentage < 0.8)
+            return "󰁾";
+        return "󰁹";
     }
 
     FileView {
@@ -304,7 +328,7 @@ ShellRoot {
                     }
 
                     PanelButton {
-                        label: "CPU " + root.cpuPercent.toFixed(0) + "%  MEM " + root.memoryPercent.toFixed(0) + "%  DISK " + root.diskPercent.toFixed(0) + "%"
+                        label: "󰍛 " + root.cpuPercent.toFixed(0) + "%  󰘚 " + root.memoryPercent.toFixed(0) + "%  󰋊 " + root.diskPercent.toFixed(0) + "%"
                         backgroundColor: "transparent"
                         activeColor: root.selection
                         foregroundColor: root.foreground
@@ -314,7 +338,7 @@ ShellRoot {
                     }
 
                     PanelButton {
-                        label: root.volumeLabel()
+                        label: root.volumeIcon() + " " + root.volumeLabel()
                         backgroundColor: "transparent"
                         activeColor: root.selection
                         foregroundColor: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted ? root.warning : root.foreground
@@ -335,7 +359,7 @@ ShellRoot {
 
                     PanelButton {
                         visible: UPower.displayDevice && UPower.displayDevice.isPresent && UPower.displayDevice.isLaptopBattery
-                        label: "BAT " + Math.round(UPower.displayDevice.percentage * 100) + "%" + (UPower.displayDevice.state === UPowerDeviceState.Charging ? " CHG" : "")
+                        label: root.batteryIcon() + " " + Math.round(UPower.displayDevice.percentage * 100) + "%"
                         backgroundColor: "transparent"
                         activeColor: root.selection
                         foregroundColor: UPower.displayDevice && UPower.displayDevice.percentage < 0.2 ? root.warning : root.foreground
@@ -435,7 +459,7 @@ ShellRoot {
                     Text { text: "CPU     " + root.cpuPercent.toFixed(1) + "%"; color: root.foreground; font.pixelSize: 15 }
                     Text { text: "Memory  " + root.bytes(root.memoryUsed) + " / " + root.bytes(root.memoryTotal) + "  (" + root.memoryPercent.toFixed(1) + "%)"; color: root.foreground; font.pixelSize: 15 }
                     Text { text: "Disk /  " + root.bytes(root.diskUsed) + " / " + root.bytes(root.diskTotal) + "  (" + root.diskPercent.toFixed(1) + "%)"; color: root.foreground; font.pixelSize: 15 }
-                    Text { text: "Volume  " + root.volumeLabel().replace("VOL ", ""); color: root.foreground; font.pixelSize: 15 }
+                    Text { text: "Volume  " + root.volumeLabel(); color: root.foreground; font.pixelSize: 15 }
                     Item { Layout.fillHeight: true }
                 }
 
