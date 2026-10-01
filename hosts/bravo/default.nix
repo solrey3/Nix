@@ -85,6 +85,7 @@
 
   environment.systemPackages = with pkgs; [
     pavucontrol
+    strawberry
     synology-drive-client
   ];
 

@@ -7,7 +7,6 @@
     ./disk-config.nix
     ../../modules/nixos/users/budchris.nix
     ../../modules/nixos/tailscale.nix
-    ../../modules/nixos/pi-console.nix
   ];
 
   networking = {
@@ -71,17 +70,12 @@
   services.qemuGuest.enable = true;
   services.fstrim.enable = true;
 
-  # A deployment/agent console benefits from extra file descriptors when
-  # several builds and streaming sessions overlap.
-  security.pam.loginLimits = [
-    { domain = "pi-console"; type = "soft"; item = "nofile"; value = "65536"; }
-    { domain = "pi-console"; type = "hard"; item = "nofile"; value = "65536"; }
-  ];
-
   environment.systemPackages = with pkgs; [
     fastfetch
     git
     jq
+    inputs.deploy-rs.packages.${pkgs.system}.default
+    pi-coding-agent
     tmux
   ];
 

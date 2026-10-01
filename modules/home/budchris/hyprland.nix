@@ -1,13 +1,13 @@
-{ config, lib, osConfig ? null, pkgs, ... }:
+{ lib, osConfig ? null, pkgs, ... }:
 
 let
   enabled = osConfig != null && (osConfig.custom.desktop.environments.hyprland or false);
   isBravo = osConfig != null && osConfig.networking.hostName == "bravo";
   isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
   nvidia = osConfig != null && lib.elem "nvidia" (osConfig.services.xserver.videoDrivers or [ ]);
-  # hyprpaper and hyprlock reliably decode raster images; the SVG source is
-  # retained alongside this pre-rendered ultrawide wallpaper.
-  wallpaper = ./wallpapers/tokyo-night.png;
+  # hyprpaper and hyprlock reliably decode raster images; retain the SVG source
+  # alongside this rendered Quebec Wall-11-inspired wallpaper.
+  wallpaper = ./wallpapers/quebec-wall-11-inspired.png;
   lua = lib.generators.mkLuaInline;
   exec = command: lua "hl.dsp.exec_cmd(${builtins.toJSON command})";
   workspaces = builtins.concatLists (builtins.genList
@@ -27,38 +27,6 @@ let
         }
       ])
     9);
-  waybarWorkspaceNumbers = builtins.genList (i: toString (i + 1)) 5;
-  waybarWorkspaceStatus = pkgs.writeShellApplication {
-    name = "waybar-workspace-status";
-    runtimeInputs = [ pkgs.hyprland pkgs.jq ];
-    text = ''
-      workspace="$1"
-      active="$(hyprctl activeworkspace -j | jq -r .id)"
-      if [ "$active" = "$workspace" ]; then
-        text="[$workspace]"
-        class=active
-      else
-        text=" $workspace "
-        class=inactive
-      fi
-      jq -cn --arg text "$text" --arg class "$class" '{ text: $text, class: $class }'
-    '';
-  };
-  waybarWorkspaceSelect = pkgs.writeShellApplication {
-    name = "waybar-workspace-select";
-    runtimeInputs = [ pkgs.hyprland pkgs.procps ];
-    text = ''
-      workspace="''${1:?workspace number required}"
-      case "$workspace" in
-        1|2|3|4|5) ;;
-        *) echo "invalid workspace: $workspace" >&2; exit 2 ;;
-      esac
-      hyprctl dispatch "hl.dsp.focus({ workspace = $workspace })"
-      # Refresh all workspace labels immediately instead of waiting for their
-      # low-frequency fallback poll.
-      pkill -RTMIN+8 -x .waybar-wrapped 2>/dev/null || true
-    '';
-  };
 in
 {
   config = lib.mkIf enabled {
@@ -71,10 +39,10 @@ in
       hyprpaper
       hyprpicker
       hyprsunset
+      kdePackages.polkit-kde-agent-1
       libnotify
       playerctl
       slurp
-      waybar
       wl-clipboard
     ];
 
@@ -142,6 +110,9 @@ in
           { _args = [ "ELECTRON_OZONE_PLATFORM_HINT" "auto" ]; }
           { _args = [ "XCURSOR_SIZE" "24" ]; }
           { _args = [ "HYPRCURSOR_SIZE" "24" ]; }
+          # Keep GTK applications dark even when a portal has not yet exported
+          # the desktop color-scheme setting.
+          { _args = [ "GTK_THEME" "Adwaita:dark" ]; }
         ] ++ lib.optionals nvidia [
           { _args = [ "LIBVA_DRIVER_NAME" "nvidia" ]; }
           { _args = [ "__GLX_VENDOR_LIBRARY_NAME" "nvidia" ]; }
@@ -156,15 +127,16 @@ in
                 hl.exec_cmd("${pkgs.dbus}/bin/dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE")
                 hl.exec_cmd("${pkgs.systemd}/bin/systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE")
                 hl.exec_cmd("${pkgs.gnome-keyring}/bin/gnome-keyring-daemon --start --components=pkcs11,secrets")
+                hl.exec_cmd("${pkgs.kdePackages.polkit-kde-agent-1}/libexec/polkit-kde-authentication-agent-1")
+                -- Every Hyprland login starts from the declared dark theme;
+                -- the interactive toggle may still switch the live session.
+                hl.exec_cmd("tokyo-night-set dark")
                 hl.exec_cmd("${pkgs.hyprpaper}/bin/hyprpaper")
-                -- hyprpaper can start before its layer surface is ready. Apply
-                -- the wallpaper again after startup so the desktop is never
-                -- left with Hyprland's solid fallback background.
-                hl.exec_cmd("${pkgs.bash}/bin/sh -c 'sleep 1; ${pkgs.hyprland}/bin/hyprctl hyprpaper wallpaper ,${wallpaper}'")
                 hl.exec_cmd("${pkgs.hypridle}/bin/hypridle")
-                hl.exec_cmd("${pkgs.waybar}/bin/waybar -c ${config.xdg.configHome}/waybar/config-hyprland -s ${config.xdg.configHome}/waybar/style.css")
+                hl.exec_cmd("${pkgs.quickshell}/bin/qs -n -c budchris")
                 hl.exec_cmd("${pkgs.networkmanagerapplet}/bin/nm-applet --indicator")
                 hl.exec_cmd("${pkgs.blueman}/bin/blueman-applet")
+                hl.exec_cmd("${pkgs.proton-vpn}/bin/protonvpn-app --start-minimized")
                 ${lib.optionalString isBravo ''
                   hl.exec_cmd("${pkgs.bash}/bin/sh -c 'sleep 1; ${pkgs.systemd}/bin/systemctl --user restart app-synology\\x2ddrive@autostart.service'")
                 ''}
@@ -196,6 +168,12 @@ in
           { _args = [ "SUPER + SHIFT + E" (lua "hl.dsp.exit()") ]; }
           { _args = [ "SUPER + F" (lua "hl.dsp.window.fullscreen()") ]; }
           { _args = [ "SUPER + SHIFT + SPACE" (lua ''hl.dsp.window.float({ action = "toggle" })'') ]; }
+          # Hold Super and drag with the left/right mouse button to move/resize.
+          # Super+Alt+left-drag provides a touchpad-friendly resize gesture
+          # that does not require holding a secondary click on a clickpad.
+          { _args = [ "SUPER + mouse:272" (lua "hl.dsp.window.drag()") { mouse = true; } ]; }
+          { _args = [ "SUPER + mouse:273" (lua "hl.dsp.window.resize()") { mouse = true; } ]; }
+          { _args = [ "SUPER + ALT + mouse:272" (lua "hl.dsp.window.resize()") { mouse = true; } ]; }
           { _args = [ "SUPER + H" (lua ''hl.dsp.focus({ direction = "left" })'') ]; }
           { _args = [ "SUPER + J" (lua ''hl.dsp.focus({ direction = "down" })'') ]; }
           { _args = [ "SUPER + K" (lua ''hl.dsp.focus({ direction = "up" })'') ]; }
@@ -216,10 +194,12 @@ in
           { _args = [ "SUPER + CTRL + G" (lua "hl.dsp.window.move({ out_of_group = true })") ]; }
           { _args = [ "SUPER + CTRL + L" (exec "${pkgs.hyprlock}/bin/hyprlock") ]; }
           { _args = [ "SUPER + SHIFT + B" (exec "${pkgs.xdg-utils}/bin/xdg-open https://www.google.com") ]; }
+          { _args = [ "SUPER + SHIFT + P" (exec "${pkgs.firefox}/bin/firefox --private-window") ]; }
           { _args = [ "SUPER + SHIFT + F" (exec "${pkgs.xdg-utils}/bin/xdg-open $HOME") ]; }
           { _args = [ "SUPER + SHIFT + O" (exec "${pkgs.obsidian}/bin/obsidian") ]; }
           { _args = [ "SUPER + CTRL + S" (exec "${pkgs.localsend}/bin/localsend_app") ]; }
           { _args = [ "SUPER + SHIFT + ALT + M" (exec "${pkgs.ghostty}/bin/ghostty -e ${pkgs.cliamp}/bin/cliamp") ]; }
+          { _args = [ "SUPER + SHIFT + R" (exec "quickshell-toggle") ]; }
           { _args = [ "SUPER + SHIFT + T" (exec "tokyo-night-toggle") ]; }
           { _args = [ "SUPER + CTRL + U" (exec "${pkgs.ghostty}/bin/ghostty -e ${pkgs.dua}/bin/dua i $HOME") ]; }
           { _args = [ "PRINT" (exec "desktop-screenshot-region") ]; }
@@ -240,9 +220,36 @@ in
     };
 
     xdg.configFile = {
+      "fuzzel/fuzzel.ini".text = ''
+        [main]
+        font=JetBrainsMono Nerd Font Mono:size=11
+        width=42
+        lines=10
+        horizontal-pad=16
+        vertical-pad=12
+        inner-pad=8
+        layer=overlay
+
+        [colors]
+        background=1a1b26f2
+        text=c0caf5ff
+        match=7aa2f7ff
+        selection=33467cff
+        selection-text=c0caf5ff
+        selection-match=7aa2f7ff
+        border=414868ff
+
+        [border]
+        width=1
+        radius=6
+      '';
+
       "hypr/hyprpaper.conf".text = ''
-        preload = ${wallpaper}
-        wallpaper = ,${wallpaper}
+        wallpaper {
+          monitor =
+          path = ${wallpaper}
+          fit_mode = cover
+        }
         splash = false
       '';
 
@@ -264,6 +271,14 @@ in
       '';
 
       "hypr/hyprlock.conf".text = ''
+        auth {
+          fingerprint {
+            enabled = true
+            ready_message = Scan fingerprint to unlock
+            present_message = Scanning fingerprint...
+            retry_delay = 250
+          }
+        }
         background {
           monitor =
           path = ${wallpaper}
@@ -301,48 +316,6 @@ in
         }
       '';
 
-      "waybar/config-hyprland".text = builtins.toJSON ({
-        layer = "top";
-        position = "top";
-        height = 30;
-        spacing = 8;
-        # Use explicit modules because Waybar's Hyprland workspace buttons did
-        # not dispatch pointer selections reliably on Quebec.
-        modules-left = map (ws: "custom/workspace-${ws}") waybarWorkspaceNumbers;
-        modules-center = [ "clock" ];
-        modules-right = [ "tray" "network" "bluetooth" "wireplumber" "cpu" "battery" ];
-        clock.format = "{:%Y-%m-%d %H:%M}";
-        network = {
-          "format-wifi" = "  {essid} ({signalStrength}%)";
-          "format-ethernet" = "󰈀  {ipaddr}/{cidr}";
-          "format-disconnected" = "󰖪  disconnected";
-          "on-click" = "${pkgs.networkmanagerapplet}/bin/nm-connection-editor";
-        };
-        bluetooth = {
-          format = " {status}";
-          "format-connected" = " {device_alias}";
-          "on-click" = "${pkgs.blueman}/bin/blueman-manager";
-        };
-        wireplumber = {
-          format = "  {volume}%";
-          "format-muted" = "  muted";
-          "on-click" = "${pkgs.pavucontrol}/bin/pavucontrol";
-        };
-        cpu = { format = "CPU {usage}%"; interval = 5; };
-        battery = { format = "{capacity}% {icon}"; };
-        tray.spacing = 10;
-      } // lib.genAttrs (map (ws: "custom/workspace-${ws}") waybarWorkspaceNumbers)
-        (name:
-          let ws = lib.removePrefix "custom/workspace-" name; in {
-            exec = "${waybarWorkspaceStatus}/bin/waybar-workspace-status ${ws}";
-            "on-click" = "${waybarWorkspaceSelect}/bin/waybar-workspace-select ${ws}";
-            # Signals refresh immediately after pointer selection; this poll is
-            # only a fallback for keyboard-initiated workspace changes.
-            signal = 8;
-            interval = 10;
-            "return-type" = "json";
-            tooltip = false;
-          }));
     };
   };
 }

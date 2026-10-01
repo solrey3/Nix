@@ -32,6 +32,14 @@ let
   };
 in
 {
+  xdg.mimeApps = lib.mkIf isDesktop {
+    enable = true;
+    defaultApplications = {
+      "inode/directory" = [ "org.gnome.Nautilus.desktop" ];
+      "application/x-gnome-saved-search" = [ "org.gnome.Nautilus.desktop" ];
+    };
+  };
+
   home.packages = lib.optionals isDesktop
     (with pkgs; [
       # Lightweight Omarchy-inspired tools selected for this fleet. These are
@@ -45,6 +53,9 @@ in
       libreoffice
       localsend
       mpv
+      nautilus
+      signal-desktop
+      telegram-desktop
       tensaku
       xournalpp
     ]) ++ (with pkgs; [

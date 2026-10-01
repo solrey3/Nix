@@ -14,6 +14,18 @@ in
     googleChromeWork
   ];
 
+  # Keep Firefox as the personal/default browser while retaining the separate
+  # Chrome launcher for work-only browsing.
+  xdg.mimeApps = {
+    enable = true;
+    defaultApplications = {
+      "text/html" = [ "firefox.desktop" ];
+      "application/xhtml+xml" = [ "firefox.desktop" ];
+      "x-scheme-handler/http" = [ "firefox.desktop" ];
+      "x-scheme-handler/https" = [ "firefox.desktop" ];
+    };
+  };
+
   xdg.desktopEntries.google-chrome-work = {
     name = "Google Chrome (Work)";
     genericName = "Work Web Browser";

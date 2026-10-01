@@ -15,13 +15,7 @@ The checked-in hardware files were generated on the current `kilo`, `lima`, and 
 sudo nixos-generate-config --show-hardware-config > hosts/HOST/hardware-configuration.nix
 ```
 
-Give each machine a DHCP reservation. The default cluster endpoint is `https://kilo.local:6443`; Avahi is enabled for that name. Stable LAN DNS or kilo's reserved IP is more robust. To use an IP, add this to both `hosts/lima/default.nix` and `hosts/mike/default.nix`:
-
-```nix
-custom.k3sCluster.serverAddress = "https://192.168.1.10:6443";
-```
-
-Also replace `kilo.local` in the `--tls-san` flag in `modules/nixos/k3s-cluster.nix`, or add the IP as another TLS SAN.
+Enroll all three machines in the same tailnet with MagicDNS enabled. The default cluster endpoint is `https://kilo:6443`. K3s advertises each node's Tailscale IPv4 address and binds flannel to `tailscale0`; the host firewall permits the API, etcd, kubelet, and VXLAN ports only on that interface. LAN DHCP reservations are still recommended for ordinary host and media-service access, but cluster control-plane traffic does not use them.
 
 The cluster mounts NFS exports from the NAS at hostname `illmatic` on every node. Ensure that name resolves from all three hosts and that the NAS exports `/Jukebox`, `/Movies`, `/TV`, `/Downloads`, and `/Sports` to them. Navidrome receives `/Jukebox`, Jellyfin receives the media paths read-only, and SABnzbd writes to `/Downloads`. The host mount points are under `/mnt/illmatic`.
 
@@ -31,6 +25,8 @@ Deploy kilo first:
 
 ```sh
 sudo nixos-rebuild switch --flake .#kilo
+sudo tailscale up --hostname=kilo
+sudo systemctl restart k3s
 sudo systemctl status k3s
 sudo k3s kubectl get nodes
 ```
@@ -50,11 +46,16 @@ ssh budchris@HOST 'sudo install -D -m 0600 -o root -g root /tmp/k3s-cluster-toke
 rm /tmp/k3s-cluster-token
 ```
 
-Then deploy both nodes:
+Then deploy and enroll both nodes:
 
 ```sh
 sudo nixos-rebuild switch --flake .#lima
+sudo tailscale up --hostname=lima
+sudo systemctl restart k3s
+
 sudo nixos-rebuild switch --flake .#mike
+sudo tailscale up --hostname=mike
+sudo systemctl restart k3s
 ```
 
 Verify from kilo:
@@ -73,17 +74,16 @@ kubectl get nodes
 
 ## 4. Pi-hole password and service addresses
 
-The Pi-hole deployment starts without a configured web password. Store the password in 1Password, then stream it directly into Kubernetes without printing it or placing it in shell history. Adjust the item reference to the actual vault item:
+The Pi-hole deployment requires the `network/pihole-admin` Secret and will not start without it. Store the password in 1Password, then stream it directly into Kubernetes without printing it or placing it in shell history. Adjust the item reference to the actual vault item:
 
 ```sh
 op read 'op://Homelab/Pi-hole/password' | \
   kubectl -n network create secret generic pihole-admin \
     --from-file=password=/dev/stdin --dry-run=client -o yaml | \
   kubectl apply -f -
-kubectl -n network rollout restart deployment/pihole
 ```
 
-The same command safely updates the Secret during password rotation.
+Kubernetes starts the waiting pod after the Secret appears. The same command safely updates the Secret during password rotation; restart the deployment after a rotation so the container reads the new value.
 
 Discover service addresses:
 

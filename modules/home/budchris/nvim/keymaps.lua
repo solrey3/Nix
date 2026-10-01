@@ -106,18 +106,43 @@ local function save_and_rename_note()
   end
 
   local slug = title:gsub("[^%w%s-]", ""):gsub("%s+", "-"):lower()
-  local date = ('%s-%s-%s'):format(compact_date:sub(1, 4), compact_date:sub(5, 6), compact_date:sub(7, 8))
+  local date = ("%s-%s-%s"):format(compact_date:sub(1, 4), compact_date:sub(5, 6), compact_date:sub(7, 8))
   local new_path = vim.fs.dirname(current_path) .. "/" .. date .. "-" .. slug .. ".md"
+  current_path = vim.fs.normalize(current_path)
+  new_path = vim.fs.normalize(new_path)
 
-  if vim.fs.normalize(new_path) == vim.fs.normalize(current_path) then
+  if new_path == current_path then
     vim.cmd.write()
     return
   end
 
-  vim.cmd.saveas(vim.fn.fnameescape(new_path))
-  if current_path ~= "" then
-    vim.fn.delete(current_path)
+  if vim.uv.fs_stat(new_path) then
+    vim.notify("A note already exists at " .. new_path, vim.log.levels.ERROR)
+    return
   end
+
+  local old_exists = vim.uv.fs_stat(current_path) ~= nil
+  local renamed, rename_error = pcall(vim.api.nvim_buf_set_name, bufnr, new_path)
+  if not renamed then
+    vim.notify("Could not rename note: " .. rename_error, vim.log.levels.ERROR)
+    return
+  end
+
+  local written, write_error = pcall(vim.cmd.write)
+  if not written then
+    pcall(vim.api.nvim_buf_set_name, bufnr, current_path)
+    vim.notify("Could not save renamed note: " .. write_error, vim.log.levels.ERROR)
+    return
+  end
+
+  if old_exists then
+    local deleted = vim.fn.delete(current_path)
+    if deleted ~= 0 then
+      vim.notify("Saved renamed note, but could not remove " .. current_path, vim.log.levels.WARN)
+      return
+    end
+  end
+
   vim.notify("Saved note as " .. vim.fs.basename(new_path))
 end
 

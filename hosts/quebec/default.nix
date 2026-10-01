@@ -55,6 +55,14 @@
     };
   };
 
+  # Goodix 27c6:609c fingerprint reader. fprintd enables fingerprint PAM
+  # authentication for SDDM/login, KDE's dedicated fingerprint stack, and
+  # swaylock. Hyprlock uses fprintd directly so password entry remains usable
+  # while it scans in parallel.
+  services.fprintd.enable = true;
+  programs.hyprlock.enable = true;
+  security.pam.services.hyprlock.fprintAuth = false;
+
   i18n.extraLocaleSettings = {
     LC_ADDRESS = "en_US.UTF-8";
     LC_IDENTIFICATION = "en_US.UTF-8";
