@@ -92,21 +92,63 @@ end
 local function save_and_rename_note()
   local bufnr = vim.api.nvim_get_current_buf()
   local current_path = vim.api.nvim_buf_get_name(bufnr)
-  local title, note_date
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local title, created, date_value
 
-  for _, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
-    title = title or line:match("^title:%s*[\"']?(.-)[\"']?%s*$")
-    note_date = note_date or line:match("^note:%s*[\"']?(.-)[\"']?%s*$")
+  -- Locate the frontmatter block (first "---" to the next "---").
+  local fm_end
+  if lines[1] and lines[1]:match("^%-%-%-%s*$") then
+    for i = 2, #lines do
+      if lines[i]:match("^%-%-%-%s*$") then
+        fm_end = i
+        break
+      end
+    end
   end
 
-  local compact_date = note_date and note_date:gsub("[^0-9]", "") or ""
-  if not title or title == "" or #compact_date < 8 then
-    vim.notify("A title and a note date are required", vim.log.levels.ERROR)
+  if fm_end then
+    for i = 2, fm_end - 1 do
+      local key, value = lines[i]:match("^(%w+):%s*(.-)%s*$")
+      if key == "title" then
+        title = value
+      elseif key == "created" then
+        created = value
+      elseif key == "date" then
+        date_value = value
+      end
+    end
+  end
+
+  -- New notes use the first H1 as their title (frontmatter title is legacy),
+  -- so fall back to the first H1 when no title field is present.
+  if not title then
+    for i = (fm_end or 0) + 1, #lines do
+      if lines[i]:match("^#%s") then
+        title = lines[i]:gsub("^#%s*", "")
+        break
+      end
+    end
+  end
+
+  -- Strip surrounding quotes from YAML string values.
+  if title then
+    title = title:gsub("^[\"']", ""):gsub("[\"']$", "")
+  end
+
+  -- Filename date comes from `created` (YYYY-MM-DD HH:MM:SS),
+  -- falling back to the legacy `date` (YYYY-MM-DD).
+  local raw_date = created or date_value
+  local date = raw_date and raw_date:match("^(%d%d%d%d%-%d%d%-%d%d)")
+
+  if not title or title == "" or not date then
+    vim.notify(
+      "A title (H1 or frontmatter) and a created/date field are required",
+      vim.log.levels.ERROR
+    )
     return
   end
 
   local slug = title:gsub("[^%w%s-]", ""):gsub("%s+", "-"):lower()
-  local date = ("%s-%s-%s"):format(compact_date:sub(1, 4), compact_date:sub(5, 6), compact_date:sub(7, 8))
   local new_path = vim.fs.dirname(current_path) .. "/" .. date .. "-" .. slug .. ".md"
   current_path = vim.fs.normalize(current_path)
   new_path = vim.fs.normalize(new_path)
