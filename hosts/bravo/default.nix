@@ -85,7 +85,6 @@
 
   environment.systemPackages = with pkgs; [
     pavucontrol
-    pi-coding-agent
     synology-drive-client
   ];
 

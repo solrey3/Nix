@@ -69,7 +69,6 @@
 
   environment.systemPackages = with pkgs; [
     pavucontrol
-    pi-coding-agent
   ];
 
   # Quebec's MPD and rmpc communicate over a local Unix socket. Besides
