@@ -29,7 +29,7 @@
       "protonvpn"
       "signal"
       "synology-drive"
-      "visual-studio-code"
+      "vscodium"
       "vlc"
       "wezterm"
     ];

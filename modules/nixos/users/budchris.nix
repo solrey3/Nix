@@ -1,4 +1,4 @@
-{ hostname, lib, pkgs, ... }:
+{ hostname, pkgs, ... }:
 
 {
   # Tango is a headless deployment console; keep browsers, compositors, GUI
@@ -29,9 +29,6 @@
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFdNJeN48PBRxNZL85RhQxTLLyDMVWwPf6RGqA4x5egf budchris@oscar"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEwLrjfTnFp1loaFmLE3v15E1ae9izzWMxpRktYvAqqb budchris@bravo"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJVzu8in7Il2n2bVoSKT8OoG+f2ecKtvOZOprTCdQKiQ budchris@tango"
-    ];
-    packages = lib.optionals (hostname != "tango") [
-      pkgs.kdePackages.kate
     ];
   };
 }

@@ -38,7 +38,6 @@
   };
 
   environment.systemPackages = with pkgs; [
-    pi-coding-agent
   ];
 
   # Change this only after reading the NixOS release notes.
