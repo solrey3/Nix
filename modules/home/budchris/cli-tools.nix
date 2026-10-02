@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   imports = [ ./tmux.nix ];
@@ -63,10 +63,12 @@
   ];
 
   # rmpc talks to the MPD server on alpha (the audio system).
+  xdg.configFile."rmpc/theme.ron".source = ./rmpc-theme.ron;
   xdg.configFile."rmpc/config.ron".text = ''
     #![enable(implicit_some)]
     (
         address: "alpha.local:6600",
+        theme: "${config.xdg.configHome}/rmpc/theme.ron",
     )
   '';
 
