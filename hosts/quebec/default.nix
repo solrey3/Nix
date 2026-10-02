@@ -84,11 +84,12 @@
   # NAS file URIs before its initial full-library scan has completed.
   services.mpd.settings.bind_to_address = lib.mkForce "/run/mpd/socket";
 
-  home-manager.users.budchris = { lib, ... }: {
+  home-manager.users.budchris = { config, lib, ... }: {
     xdg.configFile."rmpc/config.ron".text = lib.mkForce ''
       #![enable(implicit_some)]
       (
           address: "/run/mpd/socket",
+          theme: "${config.xdg.configHome}/rmpc/theme.ron",
       )
     '';
   };
