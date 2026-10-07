@@ -193,7 +193,7 @@ in
           { _args = [ "SUPER + ALT + L" (lua ''hl.dsp.window.move({ into_or_create_group = "right" })'') ]; }
           { _args = [ "SUPER + CTRL + G" (lua "hl.dsp.window.move({ out_of_group = true })") ]; }
           { _args = [ "SUPER + CTRL + L" (exec "${pkgs.hyprlock}/bin/hyprlock") ]; }
-          { _args = [ "SUPER + SHIFT + B" (exec "${pkgs.xdg-utils}/bin/xdg-open https://www.google.com") ]; }
+          { _args = [ "SUPER + SHIFT + B" (exec "${pkgs.firefox}/bin/firefox") ]; }
           { _args = [ "SUPER + SHIFT + P" (exec "${pkgs.firefox}/bin/firefox --private-window") ]; }
           { _args = [ "SUPER + SHIFT + F" (exec "${pkgs.xdg-utils}/bin/xdg-open $HOME") ]; }
           { _args = [ "SUPER + SHIFT + O" (exec "${pkgs.obsidian}/bin/obsidian") ]; }
