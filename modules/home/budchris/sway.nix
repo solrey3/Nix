@@ -114,7 +114,7 @@ let
 
   swayAppKeys = ''
     ### Shared desktop application bindings
-    bindsym $mod+Shift+b exec ${pkgs.xdg-utils}/bin/xdg-open https://www.google.com
+    bindsym $mod+Shift+b exec ${pkgs.firefox}/bin/firefox
     bindsym $mod+Shift+f exec ${pkgs.xdg-utils}/bin/xdg-open "$HOME"
     bindsym $mod+Shift+o exec ${pkgs.obsidian}/bin/obsidian
     bindsym $mod+Ctrl+s exec ${pkgs.localsend}/bin/localsend_app
