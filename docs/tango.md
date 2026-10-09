@@ -1,6 +1,6 @@
 # Tango command center
 
-`tango` is the DigitalOcean NixOS deployment console. Its initial public address is `143.198.8.152`; routine access should use Tailscale MagicDNS after enrollment.
+`tango` is the DigitalOcean NixOS deployment console. Use the droplet's address from the DigitalOcean dashboard for initial setup; after enrollment, use Tailscale MagicDNS for routine access.
 
 ## Install from the Ubuntu droplet
 
@@ -12,10 +12,11 @@ The local install key is `~/.ssh/tango_install_ed25519`. Its public half must be
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILluiwZ/efnUYTmrf0lci6jIeQwYK7RbgcxGUIthlJYe tango-install
 ```
 
-Use the DigitalOcean web console to add it if SSH access was not configured when the droplet was created. Then verify the target disk and firmware mode:
+Use the DigitalOcean web console to add it if SSH access was not configured when the droplet was created. Set `TANGO_IP` to the droplet's current public address (do not commit it), then verify the target disk and firmware mode:
 
 ```sh
-ssh -i ~/.ssh/tango_install_ed25519 root@143.198.8.152 \
+export TANGO_IP=<droplet-public-ip>
+ssh -i ~/.ssh/tango_install_ed25519 "root@$TANGO_IP" \
   'lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS; test -d /sys/firmware/efi && echo UEFI || echo BIOS'
 ```
 
@@ -24,14 +25,14 @@ The checked-in layout expects `/dev/vda` and BIOS. If those differ, stop and upd
 ```sh
 nix run github:nix-community/nixos-anywhere -- \
   --flake path:.#tango \
-  --target-host root@143.198.8.152 \
+  --target-host "root@$TANGO_IP" \
   -i ~/.ssh/tango_install_ed25519
 ```
 
 After reboot:
 
 ```sh
-ssh -i ~/.ssh/tango_install_ed25519 budchris@143.198.8.152
+ssh -i ~/.ssh/tango_install_ed25519 "budchris@$TANGO_IP"
 sudo tailscale up --hostname=tango
 ```
 
