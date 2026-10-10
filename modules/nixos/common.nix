@@ -3,6 +3,7 @@
 {
   imports = [
     ./nix.nix
+    ./fleet.nix
   ];
 
   time.timeZone = "America/New_York";

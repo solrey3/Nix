@@ -1,4 +1,4 @@
-{ hostname, lib, ... }:
+{ config, hostname, lib, ... }:
 
 {
   imports = [
@@ -13,7 +13,7 @@
   networking.hostName = hostname;
 
   # Use the same XFCE-backed i3 session and keybindings as alpha.
-  home-manager.users.budchris = { ... }: {
+  home-manager.users.${config.custom.fleet.primaryUser} = { ... }: {
     xdg.configFile."i3/config".source = ./config/i3/config;
   };
   boot.loader.systemd-boot.enable = true;

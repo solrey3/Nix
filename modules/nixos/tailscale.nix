@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   services.tailscale = {
@@ -9,8 +9,8 @@
   environment.systemPackages = [ pkgs.tailscale ];
 
   networking.firewall = {
-    allowedUDPPorts = [ 41641 ];
-    trustedInterfaces = [ "tailscale0" ];
+    allowedUDPPorts = [ config.services.tailscale.port ];
+    trustedInterfaces = [ config.services.tailscale.interfaceName ];
     checkReversePath = "loose";
   };
 }

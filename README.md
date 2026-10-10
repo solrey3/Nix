@@ -28,7 +28,7 @@ modules/
     users/budchris.nix       User account and Home Manager integration
   darwin/                    Shared nix-darwin settings and applications
   home/budchris/             Home Manager applications and dotfiles
-kubernetes/homelab.yaml      Cluster media, DNS, and homepage workloads
+kubernetes/homelab.yaml.in   Template for cluster media, DNS, and homepage workloads
 docs/                        Installation, desktop, and cluster guides
 overlays/                    Local nixpkgs overlay
 pkgs/                        Local package outputs
@@ -154,7 +154,7 @@ Ghostty is the preferred terminal through `TERMINAL` and `xdg-terminal-exec`. La
 
 ## Beelink k3s cluster
 
-`kilo`, `lima`, and `mike` form a three-control-plane k3s cluster using embedded etcd. `kilo` deploys `kubernetes/homelab.yaml`, which contains:
+`kilo`, `lima`, and `mike` form a three-control-plane k3s cluster using embedded etcd. `kilo` renders and deploys `kubernetes/homelab.yaml.in`, which contains:
 
 - Jellyfin
 - Navidrome
@@ -185,11 +185,13 @@ Enter the development shell for `nil`, `nixpkgs-fmt`, and `statix`:
 nix develop
 ```
 
-Format and validate the flake:
+Before an update PR, update the lock file and validate all configurations:
 
 ```sh
-nix fmt
-nix flake check
+./scripts/check-updates
 ```
+
+Use `nix fmt` for formatting. See [host settings](docs/host-settings.md) for shared
+account, NAS, desktop, VPN, and cluster options and runtime environment overrides.
 
 The flake exports packages, formatter, and development shells for `x86_64-linux` and `aarch64-linux`. NixOS hosts currently use `x86_64-linux`; Echo uses `aarch64-linux`, and Delta and Juliet use `aarch64-darwin`.

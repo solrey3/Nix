@@ -1,7 +1,16 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
+let
+  tcpEndpoint = builtins.match "([^:]+):([0-9]+)" config.custom.mpdAddress;
+in
 {
-  imports = [ ./tmux.nix ];
+  imports = [ ./tmux.nix ./host-settings.nix ];
+
+  # The shuffle script supports TCP; do not export a Unix socket as a TCP host.
+  home.sessionVariables = lib.optionalAttrs (tcpEndpoint != null) {
+    MPD_HOST = builtins.elemAt tcpEndpoint 0;
+    MPD_PORT = builtins.elemAt tcpEndpoint 1;
+  };
 
   home.packages = with pkgs; [
     # System monitoring & navigation
@@ -12,7 +21,6 @@
     nnn
     mc
     tmux
-    wl-clipboard
 
     # Search & navigation
     fzf
@@ -60,14 +68,14 @@
     # Language servers & development support
     openssl
     gcc
-  ];
+  ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.wl-clipboard ];
 
   # rmpc talks to the MPD server on alpha (the audio system).
   xdg.configFile."rmpc/theme.ron".source = ./rmpc-theme.ron;
   xdg.configFile."rmpc/config.ron".text = ''
     #![enable(implicit_some)]
     (
-        address: "alpha.local:6600",
+        address: ${builtins.toJSON config.custom.mpdAddress},
         theme: "${config.xdg.configHome}/rmpc/theme.ron",
     )
   '';

@@ -1,15 +1,18 @@
-{ hostname, pkgs, ... }:
+{ config, pkgs, ... }:
 
+let
+  username = config.custom.fleet.primaryUser;
+in
 {
   # Tango is a headless deployment console; keep browsers, compositors, GUI
   # applications, fonts, and wallpapers out of its user environment.
-  home-manager.users.budchris =
-    if hostname == "tango" then
+  home-manager.users.${username} =
+    if config.custom.fleet.headless then
       {
         imports = [ ../../home/budchris/portable.nix ];
         home = {
-          username = "budchris";
-          homeDirectory = "/home/budchris";
+          inherit username;
+          homeDirectory = config.users.users.${username}.home;
           stateVersion = "25.11";
         };
       }
@@ -18,7 +21,7 @@
 
   security.sudo.wheelNeedsPassword = false;
 
-  users.users.budchris = {
+  users.users.${username} = {
     isNormalUser = true;
     description = "Buddha Christ";
     extraGroups = [ "docker" "networkmanager" "wheel" ];

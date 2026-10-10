@@ -44,7 +44,7 @@
     options = [
       "nofail"
       "x-systemd.device-timeout=10s"
-      "uid=budchris"
+      "uid=${config.custom.fleet.primaryUser}"
       "gid=users"
       "umask=022"
     ];
@@ -89,7 +89,7 @@
     synology-drive-client
   ];
 
-  home-manager.users.budchris = { pkgs, ... }:
+  home-manager.users.${config.custom.fleet.primaryUser} = { pkgs, ... }:
     let
       synologyRoot = "${pkgs.synology-drive-client}/opt/Synology/SynologyDrive";
       synologyDriveLauncher = pkgs.writeShellScript "synology-drive-launcher" ''
@@ -112,6 +112,10 @@
       '';
     in
     {
+      custom.desktopPolicy = {
+        gtkScale = "1.5";
+        restartSynology = true;
+      };
       xdg.configFile."autostart/synology-drive.desktop".text = ''
         [Desktop Entry]
         Type=Application

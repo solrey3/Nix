@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ config, inputs, ... }:
 
 {
   nix = {
@@ -6,7 +6,7 @@
       experimental-features = [ "nix-command" "flakes" ];
       auto-optimise-store = true;
       # Allow remote deployments (nixos-rebuild --target-host) from budchris.
-      trusted-users = [ "budchris" ];
+      trusted-users = [ config.custom.fleet.primaryUser ];
     };
 
     gc = {

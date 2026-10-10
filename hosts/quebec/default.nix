@@ -1,4 +1,4 @@
-{ hostname, lib, pkgs, ... }:
+{ config, hostname, lib, pkgs, ... }:
 
 {
   imports = [
@@ -85,14 +85,15 @@
   # NAS file URIs before its initial full-library scan has completed.
   services.mpd.settings.bind_to_address = lib.mkForce "/run/mpd/socket";
 
-  home-manager.users.budchris = { config, lib, ... }: {
-    xdg.configFile."rmpc/config.ron".text = lib.mkForce ''
-      #![enable(implicit_some)]
-      (
-          address: "/run/mpd/socket",
-          theme: "${config.xdg.configHome}/rmpc/theme.ron",
-      )
-    '';
+  home-manager.users.${config.custom.fleet.primaryUser} = {
+    custom.mpdAddress = "/run/mpd/socket";
+    custom.desktopPolicy = {
+      output = "eDP-1";
+      mode = "2880x1920@120";
+      scale = 1.5;
+      terminalOpacity = "1.0";
+      inhibitSuspendOnAC = true;
+    };
   };
 
   # Change this only after reading the NixOS release notes.
