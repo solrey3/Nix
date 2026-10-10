@@ -52,13 +52,13 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | `golf` | Late-2011 15-inch MacBook Pro (MacBookPro8,2), NixOS | i3/XFCE, laptop support, Docker, Tailscale |
 | `india` | Steam Deck OLED, NixOS on SD card | Plasma, Steam, laptop support, Docker, Tailscale |
 | `juliet` | 2024 M4 Mac mini, macOS | nix-darwin and Home Manager |
-| `november` | A1347 Mac mini, NixOS | XFCE/i3, Docker, Tailscale |
-| `papa` | Beelink SER5 MAX, NixOS | Hyprland (default), Sway, Steam, Docker, Tailscale |
-| `oscar` | Laptop/workstation | Hyprland (default), COSMIC, Sway, laptop power management, Docker, VPN tools |
-| `quebec` | Framework 13 AMD laptop/workstation | Hyprland (default), COSMIC, Sway, laptop power/audio configuration, Docker, VPN tools |
 | `kilo` | k3s bootstrap server and worker | Initializes the embedded-etcd cluster and deploys homelab manifests |
 | `lima` | k3s server and worker | Joins the control plane initialized by `kilo` |
 | `mike` | k3s server and worker | Joins the control plane initialized by `kilo` |
+| `november` | A1347 Mac mini, NixOS | XFCE/i3, Docker, Tailscale |
+| `oscar` | Laptop/workstation | Hyprland (default), COSMIC, Sway, laptop power management, Docker, VPN tools |
+| `papa` | Beelink SER5 MAX, NixOS | Hyprland (default), Sway, Steam, Docker, Tailscale |
+| `quebec` | Framework 13 AMD laptop/workstation | Hyprland (default), COSMIC, Sway, laptop power/audio configuration, Docker, VPN tools |
 | `tango` | Fleet command center | deploy-rs, Tailscale, 1Password CLI, and command-line fleet administration |
 
 Tango provisioning and fleet operations are documented in [docs/tango.md](docs/tango.md).
