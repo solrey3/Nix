@@ -50,13 +50,12 @@
     environments = {
       cosmic = true;
       hyprland = true;
-      sway = true;
     };
   };
 
   # Goodix 27c6:609c fingerprint reader. fprintd enables fingerprint PAM
-  # authentication for SDDM/login, KDE's dedicated fingerprint stack, and
-  # swaylock. Hyprlock uses fprintd directly so password entry remains usable
+  # authentication for SDDM/login. Hyprlock uses fprintd directly so password
+  # entry remains usable
   # while it scans in parallel.
   services.fprintd.enable = true;
   programs.hyprlock.enable = true;
@@ -91,7 +90,6 @@
       mode = "2880x1920@120";
       scale = 1.5;
       terminalOpacity = "1.0";
-      inhibitSuspendOnAC = true;
     };
   };
 

@@ -44,8 +44,8 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | Host | Role | Main configuration |
 | --- | --- | --- |
 | `alpha` | Appliance music player | i3/XFCE, MPD, NFS music library, Tailscale |
-| `bravo` | NVIDIA desktop and media server | Hyprland (default), COSMIC, Sway, Docker, VPN tools, Jellyfin, Navidrome |
-| `charlie` | 2017 13-inch MacBook Pro (MacBookPro14,1), NixOS | i3 (default), Sway, laptop power management, Docker, Tailscale |
+| `bravo` | NVIDIA desktop and media server | Hyprland (default), COSMIC, Docker, VPN tools, Jellyfin, Navidrome |
+| `charlie` | 2017 13-inch MacBook Pro (MacBookPro14,1), NixOS | i3, laptop power management, Docker, Tailscale |
 | `delta` | 2022 M2 MacBook Air, macOS | nix-darwin and Home Manager; closed-clamshell external-display setup |
 | `echo` | Raspberry Pi 5 | Standalone aarch64-linux Home Manager profile |
 | `foxtrot` | Early-2013 13-inch Retina MacBook Pro (MacBookPro10,2), NixOS | XFCE/i3, laptop support, Docker, Tailscale |
@@ -56,9 +56,9 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | `lima` | k3s server and worker | Joins the control plane initialized by `kilo` |
 | `mike` | k3s server and worker | Joins the control plane initialized by `kilo` |
 | `november` | A1347 Mac mini, NixOS | XFCE/i3, Docker, Tailscale |
-| `oscar` | Laptop/workstation | Hyprland (default), COSMIC, Sway, laptop power management, Docker, VPN tools |
-| `papa` | Beelink SER5 MAX, NixOS | Hyprland (default), Sway, Steam, Docker, Tailscale |
-| `quebec` | Framework 13 AMD laptop/workstation | Hyprland (default), COSMIC, Sway, laptop power/audio configuration, Docker, VPN tools |
+| `oscar` | Laptop/workstation | Hyprland (default), COSMIC, laptop power management, Docker, VPN tools |
+| `papa` | Beelink SER5 MAX, NixOS | Hyprland, Steam, Docker, Tailscale |
+| `quebec` | Framework 13 AMD laptop/workstation | Hyprland (default), COSMIC, laptop power/audio configuration, Docker, VPN tools |
 | `tango` | Fleet command center | deploy-rs, Tailscale, 1Password CLI, and command-line fleet administration |
 
 Tango provisioning and fleet operations are documented in [docs/tango.md](docs/tango.md).
@@ -132,7 +132,7 @@ All hosts receive the common module, which configures:
 - flakes, other shared Nix settings, and the local overlay
 - Home Manager's NixOS module
 
-The desktop module supports Plasma 6, i3, COSMIC, Hyprland, and Sway with SDDM. `bravo`, `oscar`, and `quebec` enable COSMIC, Hyprland, and Sway, defaulting to Hyprland; `papa` also defaults to Hyprland. `alpha`, `charlie`, `foxtrot`, `golf`, and `november` default to i3. Only `india` enables Plasma and defaults to it. The module also configures PipeWire, portals, printing, Firefox, Steam, and desktop keyring integration.
+The desktop module supports Plasma 6, i3, COSMIC, and Hyprland with SDDM. `bravo`, `oscar`, and `quebec` enable COSMIC and Hyprland, defaulting to Hyprland; `papa` also defaults to Hyprland. `alpha`, `charlie`, `foxtrot`, `golf`, and `november` default to i3. Only `india` enables Plasma and defaults to it. The module also configures PipeWire, portals, printing, Firefox, Steam, and desktop keyring integration.
 
 The primary workstations (`bravo`, `oscar`, and `quebec`) additionally enable 1Password, Docker, Tailscale, Proton VPN, and WireGuard tools. Nicotine+ and Transmission run in a dedicated network namespace that fails closed unless traffic can leave through Proton VPN's `proton0` interface. Other desktop hosts use smaller role-specific combinations of Docker and Tailscale.
 
@@ -150,7 +150,7 @@ The `budchris` account and Home Manager profile are shared by the configured hos
 - Nicotine+ and Transmission launchers for the VPN-only namespace
 - monitoring, search, archive, media, and general command-line utilities
 
-Ghostty is the preferred terminal through `TERMINAL` and `xdg-terminal-exec`. LazyVim plugins are installed by `lazy.nvim` on first launch. See [Hyprland keybindings](docs/hyprland-keybindings.md) and [Sway keybindings](docs/sway-keybindings.md) for the Wayland desktop controls.
+Ghostty is the preferred terminal through `TERMINAL` and `xdg-terminal-exec`. LazyVim plugins are installed by `lazy.nvim` on first launch. See [Hyprland keybindings](docs/hyprland-keybindings.md) for the Wayland desktop controls.
 
 ## Beelink k3s cluster
 

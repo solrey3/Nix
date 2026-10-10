@@ -66,7 +66,6 @@
     environments = {
       cosmic = true;
       hyprland = true;
-      sway = true;
     };
   };
 

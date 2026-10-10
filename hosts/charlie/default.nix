@@ -20,7 +20,6 @@
     defaultSession = "none+i3";
     environments = {
       i3 = true;
-      sway = true;
     };
   };
 

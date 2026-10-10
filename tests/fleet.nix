@@ -60,6 +60,9 @@ assert lib.all (host:
 assert lib.all (host:
   self.nixosConfigurations.${host}.config.services.desktopManager.plasma6.enable == (host == "india")
 ) (builtins.attrNames self.nixosConfigurations);
+assert lib.all (host:
+  !self.nixosConfigurations.${host}.config.programs.sway.enable
+) (builtins.attrNames self.nixosConfigurations);
 assert cfg.services.k3s.serverAddr == ""; # Bootstrap does not join itself.
 assert endpointOnly.config.custom.k3sCluster.workloadSelector == { "kubernetes.io/hostname" = "kilo"; };
 assert builtins.elem "--tls-san=control.example" cfg.services.k3s.extraFlags;

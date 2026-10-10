@@ -22,7 +22,6 @@ in
       i3 = lib.mkEnableOption "i3";
       cosmic = lib.mkEnableOption "COSMIC";
       hyprland = lib.mkEnableOption "Hyprland";
-      sway = lib.mkEnableOption "Sway";
     };
   };
 
@@ -73,26 +72,9 @@ in
 
     programs.hyprland = lib.mkIf cfg.environments.hyprland {
       enable = true;
-      # Quebec may retain graphical-session.target after switching from Sway,
-      # which makes UWSM refuse to launch Hyprland. Use the direct SDDM session.
+      # Use the direct SDDM session to avoid UWSM refusing to launch when
+      # graphical-session.target remains active after switching sessions.
       withUWSM = false;
-    };
-
-    programs.sway = lib.mkIf cfg.environments.sway {
-      enable = true;
-      wrapperFeatures.gtk = true;
-      extraPackages = with pkgs; [
-        foot
-        grim
-        slurp
-        wmenu
-        brightnessctl
-        swaybg
-        swayidle
-        swaylock
-        waybar
-        wl-clipboard
-      ];
     };
 
     services.xserver.xkb = {

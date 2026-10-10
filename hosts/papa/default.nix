@@ -25,7 +25,6 @@
     defaultSession = "hyprland";
     environments = {
       hyprland = true;
-      sway = true;
     };
   };
 
