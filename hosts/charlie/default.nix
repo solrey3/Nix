@@ -17,10 +17,9 @@
   # MacBookPro14,1's panel is most comfortable at a higher logical DPI.
   services.xserver.dpi = 144;
   custom.desktop = {
-    defaultSession = "sway";
+    defaultSession = "none+i3";
     environments = {
-      plasma = false;
-      sway = true;
+      i3 = true;
     };
   };
 

@@ -15,7 +15,6 @@
     ./quickshell.nix
     ./lazyvim.nix
     ./starship.nix
-    ./sway.nix
     ./terminals.nix
     ./theme.nix
     ./wallpaper.nix

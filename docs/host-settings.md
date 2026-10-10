@@ -28,7 +28,7 @@ no UID 1000 assumption is required. Cache paths use Home Manager's `xdg.cacheHom
 ## Desktop and MPD clients
 
 Home Manager's `custom.desktopPolicy` controls `output`, `mode`, `scale`,
-`terminalOpacity`, optional `gtkScale`, `inhibitSuspendOnAC`, and `restartSynology`.
+`terminalOpacity`, optional `gtkScale`, and `restartSynology`.
 Set policy on the host's Home Manager user, not by matching hostnames in shared
 modules. Display connectors and scaling remain explicit hardware preferences.
 
