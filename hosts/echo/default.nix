@@ -1,11 +1,11 @@
-{ ... }:
+{ username, ... }:
 
 {
   imports = [ ../../modules/home/budchris/portable.nix ];
 
   home = {
-    username = "budchris";
-    homeDirectory = "/home/budchris";
+    inherit username;
+    homeDirectory = "/home/${username}";
     stateVersion = "24.11";
   };
 }

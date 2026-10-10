@@ -1,4 +1,4 @@
-{ hostname, pkgs, ... }:
+{ config, hostname, pkgs, ... }:
 
 {
   imports = [
@@ -27,7 +27,7 @@
   # PipeWire/WirePlumber are always available for MPD's audio output.
   services.displayManager.autoLogin = {
     enable = true;
-    user = "budchris";
+    user = config.custom.fleet.primaryUser;
   };
 
   # Alpha is an always-on music PC: never suspend/hibernate/idle-sleep,
@@ -103,7 +103,7 @@
 
   # Alpha-specific home-manager settings (shared config lives in
   # modules/home/budchris).
-  home-manager.users.budchris = { ... }: {
+  home-manager.users.${config.custom.fleet.primaryUser} = { ... }: {
     # Manage the i3 config declaratively (Super is the modifier).
     xdg.configFile."i3/config".source = ./config/i3/config;
 

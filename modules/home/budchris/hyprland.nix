@@ -1,9 +1,8 @@
-{ lib, osConfig ? null, pkgs, ... }:
+{ config, lib, osConfig ? null, pkgs, ... }:
 
 let
   enabled = osConfig != null && (osConfig.custom.desktop.environments.hyprland or false);
-  isBravo = osConfig != null && osConfig.networking.hostName == "bravo";
-  isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
+  policy = config.custom.desktopPolicy;
   nvidia = osConfig != null && lib.elem "nvidia" (osConfig.services.xserver.videoDrivers or [ ]);
   # hyprpaper and hyprlock reliably decode raster images; retain the SVG source
   # alongside this rendered Quebec Wall-11-inspired wallpaper.
@@ -92,18 +91,12 @@ in
           };
         };
 
-        monitor =
-          if isQuebec then {
-            output = "eDP-1";
-            mode = "2880x1920@120";
-            position = "auto";
-            scale = 1.5;
-          } else {
-            output = "";
-            mode = "preferred";
-            position = "auto";
-            scale = 1;
-          };
+        monitor = {
+          output = policy.output;
+          mode = policy.mode;
+          position = "auto";
+          scale = policy.scale;
+        };
 
         env = [
           { _args = [ "NIXOS_OZONE_WL" "1" ]; }
@@ -137,7 +130,7 @@ in
                 hl.exec_cmd("${pkgs.networkmanagerapplet}/bin/nm-applet --indicator")
                 hl.exec_cmd("${pkgs.blueman}/bin/blueman-applet")
                 hl.exec_cmd("${pkgs.proton-vpn}/bin/protonvpn-app --start-minimized")
-                ${lib.optionalString isBravo ''
+                ${lib.optionalString policy.restartSynology ''
                   hl.exec_cmd("${pkgs.bash}/bin/sh -c 'sleep 1; ${pkgs.systemd}/bin/systemctl --user restart app-synology\\x2ddrive@autostart.service'")
                 ''}
               end

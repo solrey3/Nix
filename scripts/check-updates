@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Required validation before opening an update PR. Run at the repository root.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+nix flake update
+nix flake check
+for host in delta juliet; do
+  nix eval --raw ".#darwinConfigurations.$host.system.drvPath"
+  printf '\n'
+done
+nix eval --raw .#homeConfigurations.echo.activationPackage.drvPath
+printf '\n'
+git diff --check

@@ -31,8 +31,7 @@ spec:
       labels:
         app: jellyfin
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: kilo
+      nodeSelector: @NODE_SELECTOR@
       containers:
         - name: jellyfin
           image: docker.io/jellyfin/jellyfin:10.11.11
@@ -78,19 +77,19 @@ spec:
           emptyDir: {}
         - name: jukebox
           hostPath:
-            path: /mnt/illmatic/Jukebox
+            path: @JUKEBOX_PATH@
             type: Directory
         - name: movies
           hostPath:
-            path: /mnt/illmatic/Movies
+            path: @MOVIES_PATH@
             type: Directory
         - name: tv
           hostPath:
-            path: /mnt/illmatic/TV
+            path: @TV_PATH@
             type: Directory
         - name: sports
           hostPath:
-            path: /mnt/illmatic/Sports
+            path: @SPORTS_PATH@
             type: Directory
         - name: dri
           hostPath:
@@ -139,8 +138,7 @@ spec:
       labels:
         app: navidrome
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: kilo
+      nodeSelector: @NODE_SELECTOR@
       containers:
         - name: navidrome
           image: docker.io/deluan/navidrome:0.63.2
@@ -178,7 +176,7 @@ spec:
             claimName: navidrome-data
         - name: music
           hostPath:
-            path: /mnt/illmatic/Jukebox
+            path: @JUKEBOX_PATH@
             type: Directory
 ---
 apiVersion: v1
@@ -228,9 +226,9 @@ spec:
           image: lscr.io/linuxserver/sabnzbd:4.5.5
           env:
             - name: PUID
-              value: "1000"
+              value: "@MEDIA_UID@"
             - name: PGID
-              value: "100"
+              value: "@MEDIA_GID@"
             - name: TZ
               value: America/New_York
           ports:
@@ -259,7 +257,7 @@ spec:
             claimName: sabnzbd-config
         - name: downloads
           hostPath:
-            path: /mnt/illmatic/Downloads
+            path: @DOWNLOADS_PATH@
             type: Directory
 ---
 apiVersion: v1
@@ -308,10 +306,10 @@ data:
     <body>
       <main>
         <h1>Homelab</h1>
-        <a href="http://kilo.local:8096">Jellyfin <span>media</span></a>
-        <a href="http://kilo.local:4533">Navidrome <span>music</span></a>
-        <a href="http://kilo.local:8080">SABnzbd <span>usenet</span></a>
-        <a href="http://kilo.local:8081/admin">Pi-hole <span>dns</span></a>
+        <a href="@JELLYFIN_URL@">Jellyfin <span>media</span></a>
+        <a href="@NAVIDROME_URL@">Navidrome <span>music</span></a>
+        <a href="@SABNZBD_URL@">SABnzbd <span>usenet</span></a>
+        <a href="@PIHOLE_URL@">Pi-hole <span>dns</span></a>
       </main>
     </body>
     </html>
@@ -406,8 +404,7 @@ spec:
       labels:
         app: pihole
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: kilo
+      nodeSelector: @NODE_SELECTOR@
       containers:
         - name: pihole
           image: docker.io/pihole/pihole:2025.06.2

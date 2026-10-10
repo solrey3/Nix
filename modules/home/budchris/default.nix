@@ -1,3 +1,5 @@
+{ osConfig, ... }:
+
 {
   imports = [
     ./ai.nix
@@ -20,8 +22,8 @@
   ];
 
   home = {
-    username = "budchris";
-    homeDirectory = "/home/budchris";
+    username = osConfig.custom.fleet.primaryUser;
+    homeDirectory = osConfig.users.users.${osConfig.custom.fleet.primaryUser}.home;
     stateVersion = "25.11";
   };
 

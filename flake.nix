@@ -33,6 +33,7 @@
   outputs = inputs@{ self, nixpkgs, home-manager, darwin, deploy-rs, ... }:
     let
       lib = nixpkgs.lib;
+      username = "budchris";
 
       # Add or remove supported systems for packages/devShells here.
       systems = [ "x86_64-linux" "aarch64-linux" ];
@@ -51,7 +52,7 @@
         lib.nixosSystem {
           system = hostSystem;
           specialArgs = {
-            inherit inputs self hostname;
+            inherit inputs self hostname username;
           };
           modules = [
             ({ ... }: { nixpkgs.overlays = [ self.overlays.default ]; })
@@ -66,8 +67,7 @@
         darwin.lib.darwinSystem {
           system = hostSystem;
           specialArgs = {
-            inherit inputs self hostname;
-            username = "budchris";
+            inherit inputs self hostname username;
           };
           modules = [
             home-manager.darwinModules.home-manager
@@ -75,17 +75,17 @@
             ./modules/darwin/system.nix
             ./modules/darwin/host-users.nix
             ./hosts/${hostname}
-            ({ ... }: {
+            ({ config, ... }: {
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 backupFileExtension = "backup";
                 extraSpecialArgs = { inherit inputs; };
-                users.budchris = {
+                users.${username} = {
                   imports = [ ./modules/home/budchris/portable.nix ];
                   home = {
-                    username = "budchris";
-                    homeDirectory = "/Users/budchris";
+                    inherit username;
+                    homeDirectory = config.users.users.${username}.home;
                     stateVersion = "24.11";
                   };
                 };
@@ -109,7 +109,7 @@
           system = "aarch64-linux";
           config.allowUnfree = true;
         };
-        extraSpecialArgs = { inherit inputs; };
+        extraSpecialArgs = { inherit inputs username; };
         modules = [ ./hosts/echo ];
       };
 
@@ -119,7 +119,7 @@
       deploy.nodes = lib.mapAttrs
         (hostname: configuration: {
           inherit hostname;
-          sshUser = "budchris";
+          sshUser = configuration.config.custom.fleet.primaryUser;
           remoteBuild = true;
           profiles.system = {
             user = "root";
@@ -128,7 +128,12 @@
         })
         self.nixosConfigurations;
 
-      checks.x86_64-linux = deploy-rs.lib.x86_64-linux.deployChecks self.deploy;
+      checks.x86_64-linux = deploy-rs.lib.x86_64-linux.deployChecks self.deploy // {
+        fleet-config = import ./tests/fleet.nix {
+          inherit self;
+          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        };
+      };
 
       overlays.default = import ./overlays;
 

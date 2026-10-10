@@ -1,9 +1,7 @@
-{ lib, pkgs, osConfig ? null, ... }:
+{ config, lib, pkgs, ... }:
 
 let
-  hostName = osConfig.networking.hostName or "";
-  isBravo = hostName == "bravo";
-  isQuebec = hostName == "quebec";
+  policy = config.custom.desktopPolicy;
   wallpaper = ./wallpapers/quebec-wall-11-inspired.png;
 
   swayLaptopPowerProfile = pkgs.writeShellScript "sway-laptop-power-profile" ''
@@ -63,7 +61,7 @@ let
     # Quebec may turn its display off while playing music, but must not suspend
     # on AC power. Preserve the normal idle suspend behavior on battery and on
     # other hosts.
-    if ${lib.boolToString isQuebec}; then
+    if ${lib.boolToString policy.inhibitSuspendOnAC}; then
       for supply in /sys/class/power_supply/*; do
         [ -r "$supply/type" ] || continue
         [ -r "$supply/online" ] || continue
@@ -178,12 +176,10 @@ let
     }
   '';
 
-  swayDisplay = ''
+  swayDisplay = lib.optionalString (policy.output != "") ''
 
-### Built-in display density
-# Native 2880x1920 panel at 1.5x gives a 1920x1280 logical workspace
-# instead of the default 2x-scaled 1440x960 workspace.
-output eDP-1 mode 2880x1920@120Hz scale 1.5
+### Host display configuration
+output ${policy.output} mode ${policy.mode} scale ${toString policy.scale}
 '';
 
   swayTrackpad = ''
@@ -236,8 +232,8 @@ in
 {
   # Bravo's desktop needs larger GTK UI elements. Keep this host-specific so
   # the shared Home Manager profile does not scale every Sway/Hyprland host.
-  home.sessionVariables = lib.optionalAttrs isBravo {
-    GDK_SCALE = "1.5";
+  home.sessionVariables = lib.optionalAttrs (policy.gtkScale != null) {
+    GDK_SCALE = policy.gtkScale;
   };
 
   home.packages = with pkgs; [
@@ -324,7 +320,7 @@ in
   '';
 
   xdg.configFile."waybar/style.css".text = ''
-    @import url("file:///home/budchris/.cache/tokyo-night/waybar.css");
+    @import url("file://${config.xdg.cacheHome}/tokyo-night/waybar.css");
 
     * {
       border: none;
