@@ -44,8 +44,8 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | Host | Role | Main configuration |
 | --- | --- | --- |
 | `alpha` | Appliance music player | i3/XFCE, MPD, NFS music library, Tailscale |
-| `bravo` | NVIDIA desktop and media server | Plasma, COSMIC, Hyprland, Sway, Docker, VPN tools, Jellyfin, Navidrome |
-| `charlie` | 2017 13-inch MacBook Pro (MacBookPro14,1), NixOS | Sway, laptop power management, Docker, Tailscale |
+| `bravo` | NVIDIA desktop and media server | Hyprland (default), COSMIC, Sway, Docker, VPN tools, Jellyfin, Navidrome |
+| `charlie` | 2017 13-inch MacBook Pro (MacBookPro14,1), NixOS | i3 (default), Sway, laptop power management, Docker, Tailscale |
 | `delta` | 2022 M2 MacBook Air, macOS | nix-darwin and Home Manager; closed-clamshell external-display setup |
 | `echo` | Raspberry Pi 5 | Standalone aarch64-linux Home Manager profile |
 | `foxtrot` | Early-2013 13-inch Retina MacBook Pro (MacBookPro10,2), NixOS | XFCE/i3, laptop support, Docker, Tailscale |
@@ -53,9 +53,9 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | `india` | Steam Deck OLED, NixOS on SD card | Plasma, Steam, laptop support, Docker, Tailscale |
 | `juliet` | 2024 M4 Mac mini, macOS | nix-darwin and Home Manager |
 | `november` | A1347 Mac mini, NixOS | XFCE/i3, Docker, Tailscale |
-| `papa` | Beelink SER5 MAX, NixOS | Sway, Steam, Docker, Tailscale |
-| `oscar` | Laptop/workstation | Plasma, COSMIC, Sway, laptop power management, Docker, VPN tools |
-| `quebec` | Framework 13 AMD laptop/workstation | Plasma, COSMIC, Hyprland, Sway, laptop power/audio configuration, Docker, VPN tools |
+| `papa` | Beelink SER5 MAX, NixOS | Hyprland (default), Sway, Steam, Docker, Tailscale |
+| `oscar` | Laptop/workstation | Hyprland (default), COSMIC, Sway, laptop power management, Docker, VPN tools |
+| `quebec` | Framework 13 AMD laptop/workstation | Hyprland (default), COSMIC, Sway, laptop power/audio configuration, Docker, VPN tools |
 | `kilo` | k3s bootstrap server and worker | Initializes the embedded-etcd cluster and deploys homelab manifests |
 | `lima` | k3s server and worker | Joins the control plane initialized by `kilo` |
 | `mike` | k3s server and worker | Joins the control plane initialized by `kilo` |
@@ -132,7 +132,7 @@ All hosts receive the common module, which configures:
 - flakes, other shared Nix settings, and the local overlay
 - Home Manager's NixOS module
 
-The desktop module supports Plasma 6, COSMIC, Hyprland, and Sway with SDDM. `bravo` and `quebec` enable all four; `oscar` enables Plasma, COSMIC, and Sway. All three default to Plasma. The module also configures PipeWire, portals, printing, Firefox, Steam, and desktop keyring integration.
+The desktop module supports Plasma 6, i3, COSMIC, Hyprland, and Sway with SDDM. `bravo`, `oscar`, and `quebec` enable COSMIC, Hyprland, and Sway, defaulting to Hyprland; `papa` also defaults to Hyprland. `alpha`, `charlie`, `foxtrot`, `golf`, and `november` default to i3. Only `india` enables Plasma and defaults to it. The module also configures PipeWire, portals, printing, Firefox, Steam, and desktop keyring integration.
 
 The primary workstations (`bravo`, `oscar`, and `quebec`) additionally enable 1Password, Docker, Tailscale, Proton VPN, and WireGuard tools. Nicotine+ and Transmission run in a dedicated network namespace that fails closed unless traffic can leave through Proton VPN's `proton0` interface. Other desktop hosts use smaller role-specific combinations of Docker and Tailscale.
 

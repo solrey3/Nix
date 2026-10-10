@@ -22,9 +22,9 @@
 
   # Beelink SER5 MAX: preserve the Wayland-oriented desktop role.
   custom.desktop = {
-    defaultSession = "sway";
+    defaultSession = "hyprland";
     environments = {
-      plasma = false;
+      hyprland = true;
       sway = true;
     };
   };

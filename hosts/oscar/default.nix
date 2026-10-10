@@ -17,10 +17,10 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   custom.desktop = {
-    defaultSession = "plasma";
+    defaultSession = "hyprland";
     environments = {
-      plasma = true;
       cosmic = true;
+      hyprland = true;
       sway = true;
     };
   };

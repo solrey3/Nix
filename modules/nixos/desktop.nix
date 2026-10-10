@@ -18,7 +18,8 @@ in
     };
 
     environments = {
-      plasma = lib.mkEnableOption "KDE Plasma 6" // { default = true; };
+      plasma = lib.mkEnableOption "KDE Plasma 6";
+      i3 = lib.mkEnableOption "i3";
       cosmic = lib.mkEnableOption "COSMIC";
       hyprland = lib.mkEnableOption "Hyprland";
       sway = lib.mkEnableOption "Sway";
@@ -54,6 +55,16 @@ in
       # Keep the Plasma wallet unlocked for native KDE clients. Disabling PAM
       # here leaves an existing wallet locked and causes prompts after login.
       sddm.kwallet.enable = lib.mkIf cfg.environments.plasma true;
+    };
+
+    services.xserver.windowManager.i3 = lib.mkIf cfg.environments.i3 {
+      enable = true;
+      extraPackages = with pkgs; [
+        dmenu
+        i3lock
+        i3status
+        rofi
+      ];
     };
 
     services.desktopManager.plasma6.enable = cfg.environments.plasma;
