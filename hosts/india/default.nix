@@ -19,7 +19,6 @@
     defaultSession = "plasma";
     environments = {
       plasma = true;
-      sway = false;
     };
   };
 

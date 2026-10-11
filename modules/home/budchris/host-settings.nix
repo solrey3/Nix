@@ -33,7 +33,6 @@
         default = null;
         description = "Optional GTK scale override.";
       };
-      inhibitSuspendOnAC = lib.mkEnableOption "preventing Sway idle suspend on AC power";
       restartSynology = lib.mkEnableOption "restarting Synology Drive after Hyprland login";
     };
   };

@@ -10,7 +10,7 @@ in
   config = lib.mkIf desktopEnabled {
     home.file."Pictures/Wallpapers/${wallpaperName}".source = wallpaper;
 
-    # Plasma does not consume the Hyprland/Sway wallpaper or GTK dark-mode
+    # Plasma does not consume the Hyprland wallpaper or GTK dark-mode
     # configuration. Apply both defaults when Plasma finishes starting.
     xdg.configFile."autostart/tokyo-night-desktop.desktop" = lib.mkIf plasmaEnabled {
       text = ''

@@ -34,8 +34,35 @@ let
   cfg = alternate.config;
   workstationCfg = workstation.config;
   lib = pkgs.lib;
+  desktopDefaults = {
+    alpha = "none+i3";
+    charlie = "none+i3";
+    foxtrot = "none+i3";
+    golf = "none+i3";
+    november = "none+i3";
+    bravo = "hyprland";
+    oscar = "hyprland";
+    papa = "hyprland";
+    quebec = "hyprland";
+    india = "plasma";
+  };
   python = pkgs.python3.withPackages (ps: [ ps.pyyaml ]);
 in
+assert lib.all (host:
+  let config = self.nixosConfigurations.${host}.config;
+  in config.services.displayManager.defaultSession == desktopDefaults.${host}
+    && (if desktopDefaults.${host} == "none+i3"
+        then config.services.xserver.windowManager.i3.enable
+        else if desktopDefaults.${host} == "hyprland"
+        then config.programs.hyprland.enable
+        else config.services.desktopManager.plasma6.enable)
+) (builtins.attrNames desktopDefaults);
+assert lib.all (host:
+  self.nixosConfigurations.${host}.config.services.desktopManager.plasma6.enable == (host == "india")
+) (builtins.attrNames self.nixosConfigurations);
+assert lib.all (host:
+  !self.nixosConfigurations.${host}.config.programs.sway.enable
+) (builtins.attrNames self.nixosConfigurations);
 assert cfg.services.k3s.serverAddr == ""; # Bootstrap does not join itself.
 assert endpointOnly.config.custom.k3sCluster.workloadSelector == { "kubernetes.io/hostname" = "kilo"; };
 assert builtins.elem "--tls-san=control.example" cfg.services.k3s.extraFlags;
