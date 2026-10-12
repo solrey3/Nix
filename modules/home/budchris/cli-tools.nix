@@ -61,7 +61,6 @@ in
 
     # Fun terminal tools
     figlet
-    fortune
     cowsay
     cmatrix
 
