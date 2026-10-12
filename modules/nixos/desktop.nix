@@ -70,6 +70,10 @@ in
 
     services.desktopManager.cosmic.enable = cfg.environments.cosmic;
 
+    # Install the manager/icons plus Blueman's D-Bus helper and policy.
+    # Launching only the applet leaves device management incomplete.
+    services.blueman.enable = config.hardware.bluetooth.enable;
+
     programs.hyprland = lib.mkIf cfg.environments.hyprland {
       enable = true;
       # Use the direct SDDM session to avoid UWSM refusing to launch when

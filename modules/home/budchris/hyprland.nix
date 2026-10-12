@@ -112,7 +112,7 @@ in
           { _args = [ "NVD_BACKEND" "direct" ]; }
         ];
 
-        on = {
+        on = [ {
           _args = [
             "hyprland.start"
             (lua ''
@@ -136,7 +136,7 @@ in
               end
             '')
           ];
-        };
+        } ];
 
         curve = {
           _args = [ "easeOut" { type = "bezier"; points = [ [ 0.23 1 ] [ 0.32 1 ] ]; } ];
