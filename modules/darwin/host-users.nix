@@ -1,6 +1,7 @@
 {
   username,
   hostname,
+  pkgs,
   ...
 } @ args:
 #############################################################
@@ -17,6 +18,7 @@
   users.users."${username}" = {
     home = "/Users/${username}";
     description = username;
+    shell = pkgs.zsh;
   };
 
   nix.settings.trusted-users = [username];

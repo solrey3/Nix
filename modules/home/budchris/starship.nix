@@ -1,10 +1,10 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   programs.starship = {
     enable = true;
     enableBashIntegration = true;
-    enableZshIntegration = false;
+    enableZshIntegration = pkgs.stdenv.hostPlatform.isDarwin;
 
     settings = {
       add_newline = true;

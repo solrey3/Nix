@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   imports = [
@@ -11,4 +11,5 @@
   ];
 
   programs.home-manager.enable = true;
+  programs.zsh.enable = pkgs.stdenv.hostPlatform.isDarwin;
 }

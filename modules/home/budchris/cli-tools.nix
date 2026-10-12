@@ -41,7 +41,6 @@ in
     stow
     lynx
     speedtest-cli
-    openssh
     tokei
     dysk
 
@@ -67,7 +66,10 @@ in
     # Language servers & development support
     openssl
     gcc
-  ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.wl-clipboard ];
+  ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+    pkgs.openssh
+    pkgs.wl-clipboard
+  ];
 
   # rmpc talks to the MPD server on alpha (the audio system).
   xdg.configFile."rmpc/theme.ron".source = ./rmpc-theme.ron;
