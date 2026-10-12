@@ -12,6 +12,7 @@
     ./fonts.nix
     ./git.nix
     ./hyprland.nix
+    ./workshop.nix
     ./quickshell.nix
     ./lazyvim.nix
     ./starship.nix
