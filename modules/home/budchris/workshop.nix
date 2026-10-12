@@ -31,11 +31,12 @@ in
   config = lib.mkIf enabled {
     home.packages = [ primary ];
     wayland.windowManager.hyprland.settings = {
-      # Workshop: preserve connector-independent identity for the LG display.
+      # Workshop: preserve connector-independent identities for both external displays.
       monitor = lib.mkForce [
         { output = ""; mode = "preferred"; position = "auto"; scale = 1; }
         { output = "eDP-1"; mode = "1920x1080@60"; position = "0x0"; scale = 1; }
         { output = "desc:${description}"; mode = "2560x1080@60"; position = "1920x0"; scale = 1; }
+        { output = "desc:HP Inc. HP 25f 3CM8240RX0"; mode = "1920x1080@60"; position = "4480x0"; scale = 1; }
       ];
       on = lib.mkAfter (map (event: {
         _args = [ event (lib.generators.mkLuaInline ''
