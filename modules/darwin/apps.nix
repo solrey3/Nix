@@ -16,7 +16,10 @@
       autoUpdate = false;
       cleanup = "zap";
     };
-    taps = [ "homebrew/services" ];
+    taps = [
+      "homebrew/services"
+      "nikitabobko/tap"
+    ];
     brews = [
       "curl"
       "navidrome"

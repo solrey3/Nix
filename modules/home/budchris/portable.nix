@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ ... }:
 
 {
   imports = [
@@ -8,8 +8,8 @@
     ./git.nix
     ./lazyvim.nix
     ./starship.nix
+    ./zsh.nix
   ];
 
   programs.home-manager.enable = true;
-  programs.zsh.enable = pkgs.stdenv.hostPlatform.isDarwin;
 }

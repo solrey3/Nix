@@ -84,26 +84,26 @@ in
   programs.fzf = {
     enable = true;
     enableBashIntegration = true;
-    enableZshIntegration = false;
+    enableZshIntegration = true;
   };
 
   programs.zoxide = {
     enable = true;
     enableBashIntegration = true;
-    enableZshIntegration = false;
+    enableZshIntegration = true;
     options = [ "--cmd" "cd" ];
   };
 
   programs.mise = {
     enable = true;
     enableBashIntegration = true;
-    enableZshIntegration = false;
+    enableZshIntegration = true;
   };
 
   programs.eza = {
     enable = true;
     enableBashIntegration = true;
-    enableZshIntegration = false;
+    enableZshIntegration = true;
     git = true;
     icons = "auto";
   };
@@ -112,7 +112,7 @@ in
     enable = true;
     shellWrapperName = "y";
     enableBashIntegration = true;
-    enableZshIntegration = false;
+    enableZshIntegration = true;
   };
 
 }

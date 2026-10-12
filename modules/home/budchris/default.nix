@@ -19,6 +19,7 @@
     ./terminals.nix
     ./theme.nix
     ./wallpaper.nix
+    ./zsh.nix
   ];
 
   home = {
