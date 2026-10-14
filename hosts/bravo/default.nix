@@ -33,8 +33,8 @@
   };
 
   fileSystems."/mnt/files2" = {
-    device = "/dev/disk/by-uuid/26B66CBAB66C8BDD";
-    fsType = "auto";
+    device = "/dev/disk/by-uuid/3467e001-48ce-4c85-a535-3f5da6985392";
+    fsType = "ext4";
     options = [ "nofail" "x-systemd.device-timeout=10s" ];
   };
 
@@ -48,6 +48,55 @@
       "gid=users"
       "umask=022"
     ];
+  };
+
+  # Export the master library read-only to alpha; alpha mounts it directly.
+  services.nfs.server = {
+    enable = true;
+    exports = ''
+      /mnt/files2/Jukebox 192.168.1.165(ro,fsid=0,sync,no_subtree_check,all_squash,anonuid=1000,anongid=100) 192.168.1.207(ro,fsid=0,sync,no_subtree_check,all_squash,anonuid=1000,anongid=100)
+    '';
+  };
+  networking.firewall.allowedTCPPorts = [ 2049 ];
+  systemd.services.nfs-server = {
+    after = [ "mnt-files2.mount" ];
+    requires = [ "mnt-files2.mount" ];
+  };
+
+  # Serve the master Jukebox library and play through the desktop user's
+  # PipeWire session. Using the Jukebox root keeps the existing ../Music paths
+  # in the sibling Playlists directory valid in MPD.
+  services.mpd = {
+    enable = true;
+    openFirewall = true;
+    user = "budchris";
+    settings = {
+      music_directory = "/mnt/files2/Jukebox";
+      playlist_directory = "/mnt/files2/Jukebox/Playlists";
+      bind_to_address = "any";
+      port = 6600;
+      audio_output = [
+        {
+          type = "pipewire";
+          name = "PipeWire";
+        }
+      ];
+      auto_update = "yes";
+      zeroconf_enabled = "no";
+      follow_outside_symlinks = "yes";
+      follow_inside_symlinks = "yes";
+    };
+  };
+
+  systemd.services.mpd = {
+    after = [ "mnt-files2.mount" ];
+    requires = [ "mnt-files2.mount" ];
+    environment.XDG_RUNTIME_DIR = "/run/user/1000";
+    serviceConfig = {
+      SupplementaryGroups = [ "audio" ];
+      # The first startup builds a database for the full Jukebox library.
+      TimeoutStartSec = "30min";
+    };
   };
 
   # NVIDIA GeForce RTX 3070.
@@ -121,6 +170,14 @@
         Exec=${synologyDriveLauncher}
         Terminal=false
         X-GNOME-Autostart-enabled=true
+      '';
+
+      # Bravo uses its local MPD instance by default.
+      xdg.configFile."rmpc/config.ron".text = lib.mkForce ''
+        #![enable(implicit_some)]
+        (
+            address: "127.0.0.1:6600",
+        )
       '';
     };
 
