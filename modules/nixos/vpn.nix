@@ -5,6 +5,14 @@ let
   vpnHostInterface = "vpn-apps-host";
   vpnPeerInterface = "vpn-apps-peer";
 
+  vpnNamespaceCleanup = ''
+    # Delete the veth pair even if an app still holds the old namespace open.
+    ip link delete ${vpnHostInterface} 2>/dev/null || true
+    ip link delete ${vpnPeerInterface} 2>/dev/null || true
+    ip netns delete ${vpnNamespace} 2>/dev/null || true
+    rm -rf /etc/netns/${vpnNamespace}
+  '';
+
   vpnAppLaunch = pkgs.writeShellScriptBin "vpn-app-launch" ''
     set -euo pipefail
 
@@ -70,7 +78,9 @@ in
     };
     path = [ pkgs.iproute2 ];
     script = ''
-      set -e
+      set -ex
+      # Recover from stale state left by an interrupted or failed startup.
+      ${vpnNamespaceCleanup}
       mkdir -p /etc/netns/${vpnNamespace}
       printf 'nameserver 1.1.1.1\n' > /etc/netns/${vpnNamespace}/resolv.conf
 
@@ -85,10 +95,8 @@ in
       ip -n ${vpnNamespace} link set ${vpnPeerInterface} up
       ip -n ${vpnNamespace} route add default via 10.231.0.1
     '';
-    preStop = ''
-      ip netns delete ${vpnNamespace} 2>/dev/null || true
-      rm -rf /etc/netns/${vpnNamespace}
-    '';
+    # ExecStopPost also runs when ExecStart fails partway through setup.
+    postStop = vpnNamespaceCleanup;
   };
 
   # The immutable helper only permits the two explicitly listed applications.
