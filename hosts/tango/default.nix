@@ -1,4 +1,4 @@
-{ hostname, inputs, lib, modulesPath, pkgs, ... }:
+{ config, hostname, inputs, lib, modulesPath, pkgs, ... }:
 
 {
   imports = [
@@ -8,6 +8,8 @@
     ../../modules/nixos/users/budchris.nix
     ../../modules/nixos/tailscale.nix
   ];
+
+  custom.fleet.headless = true;
 
   networking = {
     hostName = hostname;
@@ -50,7 +52,7 @@
     avahi.enable = lib.mkForce false;
   };
 
-  users.users.budchris.openssh.authorizedKeys.keys = [
+  users.users.${config.custom.fleet.primaryUser}.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILluiwZ/efnUYTmrf0lci6jIeQwYK7RbgcxGUIthlJYe tango-install"
   ];
 

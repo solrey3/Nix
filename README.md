@@ -28,7 +28,7 @@ modules/
     users/budchris.nix       User account and Home Manager integration
   darwin/                    Shared nix-darwin settings and applications
   home/budchris/             Home Manager applications and dotfiles
-kubernetes/homelab.yaml      Cluster media, DNS, and homepage workloads
+kubernetes/homelab.yaml.in   Template for cluster media, DNS, and homepage workloads
 docs/                        Installation, desktop, and cluster guides
 overlays/                    Local nixpkgs overlay
 pkgs/                        Local package outputs
@@ -44,21 +44,21 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | Host | Role | Main configuration |
 | --- | --- | --- |
 | `alpha` | Appliance music player | i3/XFCE, MPD, NFS music library, Tailscale |
-| `bravo` | NVIDIA desktop and media server | Plasma, COSMIC, Hyprland, Sway, Docker, VPN tools, Jellyfin, Navidrome |
-| `charlie` | 2017 13-inch MacBook Pro (MacBookPro14,1), NixOS | Sway, laptop power management, Docker, Tailscale |
+| `bravo` | NVIDIA desktop and media server | Hyprland (default), COSMIC, Docker, VPN tools, Jellyfin, Navidrome |
+| `charlie` | 2017 13-inch MacBook Pro (MacBookPro14,1), NixOS | i3, laptop power management, Docker, Tailscale |
 | `delta` | 2022 M2 MacBook Air, macOS | nix-darwin and Home Manager; closed-clamshell external-display setup |
 | `echo` | Raspberry Pi 5 | Standalone aarch64-linux Home Manager profile |
 | `foxtrot` | Early-2013 13-inch Retina MacBook Pro (MacBookPro10,2), NixOS | XFCE/i3, laptop support, Docker, Tailscale |
 | `golf` | Late-2011 15-inch MacBook Pro (MacBookPro8,2), NixOS | i3/XFCE, laptop support, Docker, Tailscale |
 | `india` | Steam Deck OLED, NixOS on SD card | Plasma, Steam, laptop support, Docker, Tailscale |
 | `juliet` | 2024 M4 Mac mini, macOS | nix-darwin and Home Manager |
-| `november` | A1347 Mac mini, NixOS | XFCE/i3, Docker, Tailscale |
-| `papa` | Beelink SER5 MAX, NixOS | Sway, Steam, Docker, Tailscale |
-| `oscar` | Laptop/workstation | Plasma, COSMIC, Sway, laptop power management, Docker, VPN tools |
-| `quebec` | Framework 13 AMD laptop/workstation | Plasma, COSMIC, Hyprland, Sway, laptop power/audio configuration, Docker, VPN tools |
 | `kilo` | k3s bootstrap server and worker | Initializes the embedded-etcd cluster and deploys homelab manifests |
 | `lima` | k3s server and worker | Joins the control plane initialized by `kilo` |
 | `mike` | k3s server and worker | Joins the control plane initialized by `kilo` |
+| `november` | A1347 Mac mini, NixOS | XFCE/i3, Docker, Tailscale |
+| `oscar` | Laptop/workstation | Hyprland (default), COSMIC, laptop power management, Docker, VPN tools |
+| `papa` | Beelink SER5 MAX, NixOS | Hyprland, Steam, Docker, Tailscale |
+| `quebec` | Framework 13 AMD laptop/workstation | Hyprland (default), COSMIC, laptop power/audio configuration, Docker, VPN tools |
 | `tango` | Fleet command center | deploy-rs, Tailscale, 1Password CLI, and command-line fleet administration |
 
 Tango provisioning and fleet operations are documented in [docs/tango.md](docs/tango.md).
@@ -132,7 +132,7 @@ All hosts receive the common module, which configures:
 - flakes, other shared Nix settings, and the local overlay
 - Home Manager's NixOS module
 
-The desktop module supports Plasma 6, COSMIC, Hyprland, and Sway with SDDM. `bravo` and `quebec` enable all four; `oscar` enables Plasma, COSMIC, and Sway. All three default to Plasma. The module also configures PipeWire, portals, printing, Firefox, Steam, and desktop keyring integration.
+The desktop module supports Plasma 6, i3, COSMIC, and Hyprland with SDDM. `bravo`, `oscar`, and `quebec` enable COSMIC and Hyprland, defaulting to Hyprland; `papa` also defaults to Hyprland. `alpha`, `charlie`, `foxtrot`, `golf`, and `november` default to i3. Only `india` enables Plasma and defaults to it. The module also configures PipeWire, portals, printing, Firefox, Steam, and desktop keyring integration.
 
 The primary workstations (`bravo`, `oscar`, and `quebec`) additionally enable 1Password, Docker, Tailscale, Proton VPN, and WireGuard tools. Nicotine+ and Transmission run in a dedicated network namespace that fails closed unless traffic can leave through Proton VPN's `proton0` interface. Other desktop hosts use smaller role-specific combinations of Docker and Tailscale.
 
@@ -150,11 +150,11 @@ The `budchris` account and Home Manager profile are shared by the configured hos
 - Nicotine+ and Transmission launchers for the VPN-only namespace
 - monitoring, search, archive, media, and general command-line utilities
 
-Ghostty is the preferred terminal through `TERMINAL` and `xdg-terminal-exec`. LazyVim plugins are installed by `lazy.nvim` on first launch. See [Hyprland keybindings](docs/hyprland-keybindings.md) and [Sway keybindings](docs/sway-keybindings.md) for the Wayland desktop controls.
+Ghostty is the preferred terminal through `TERMINAL` and `xdg-terminal-exec`. LazyVim plugins are installed by `lazy.nvim` on first launch. See [Hyprland keybindings](docs/hyprland-keybindings.md) for the Wayland desktop controls.
 
 ## Beelink k3s cluster
 
-`kilo`, `lima`, and `mike` form a three-control-plane k3s cluster using embedded etcd. `kilo` deploys `kubernetes/homelab.yaml`, which contains:
+`kilo`, `lima`, and `mike` form a three-control-plane k3s cluster using embedded etcd. `kilo` renders and deploys `kubernetes/homelab.yaml.in`, which contains:
 
 - Jellyfin
 - Navidrome
@@ -185,11 +185,13 @@ Enter the development shell for `nil`, `nixpkgs-fmt`, and `statix`:
 nix develop
 ```
 
-Format and validate the flake:
+Before an update PR, update the lock file and validate all configurations:
 
 ```sh
-nix fmt
-nix flake check
+./scripts/check-updates
 ```
+
+Use `nix fmt` for formatting. See [host settings](docs/host-settings.md) for shared
+account, NAS, desktop, VPN, and cluster options and runtime environment overrides.
 
 The flake exports packages, formatter, and development shells for `x86_64-linux` and `aarch64-linux`. NixOS hosts currently use `x86_64-linux`; Echo uses `aarch64-linux`, and Delta and Juliet use `aarch64-darwin`.

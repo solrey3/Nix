@@ -1,3 +1,5 @@
+{ osConfig, ... }:
+
 {
   imports = [
     ./ai.nix
@@ -10,18 +12,19 @@
     ./fonts.nix
     ./git.nix
     ./hyprland.nix
+    ./workshop.nix
     ./quickshell.nix
     ./lazyvim.nix
     ./starship.nix
-    ./sway.nix
     ./terminals.nix
     ./theme.nix
     ./wallpaper.nix
+    ./zsh.nix
   ];
 
   home = {
-    username = "budchris";
-    homeDirectory = "/home/budchris";
+    username = osConfig.custom.fleet.primaryUser;
+    homeDirectory = osConfig.users.users.${osConfig.custom.fleet.primaryUser}.home;
     stateVersion = "25.11";
   };
 

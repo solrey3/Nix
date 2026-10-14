@@ -1,14 +1,19 @@
-{ ... }:
+{ config, lib, pkgs, utils, ... }:
 
+let
+  nas = config.custom.fleet.nas;
+  mount = "${nas.mountRoot}/Jukebox";
+  audioUser = config.custom.fleet.primaryUser;
+in
 {
   # Music Player Daemon serving the Jukebox share from the NAS (illmatic).
   # Clients (e.g. rmpc) connect on port 6600 over LAN/Tailscale.
 
   boot.supportedFilesystems = [ "nfs" ];
-  fileSystems."/mnt/illmatic/Jukebox" = {
+  fileSystems.${mount} = {
     # Use the LAN address: the NAS export permits 192.168.1.0/24, while
     # Tailscale MagicDNS resolves bare "illmatic" to an unpermitted 100.x IP.
-    device = "illmatic.local:/volume1/Jukebox";
+    device = "${nas.lanHost}:${nas.exportRoot}/Jukebox";
     fsType = "nfs";
     # No idle-timeout: unmounting/remounting mid-playback caused stalls.
     options = [ "_netdev" "nofail" "x-systemd.automount" ];
@@ -22,8 +27,8 @@
     # still reach the desktop user's PipeWire socket (see below).
     user = "root";
     settings = {
-      music_directory = "/mnt/illmatic/Jukebox/Music";
-      playlist_directory = "/mnt/illmatic/Jukebox/Playlists";
+      music_directory = "${mount}/Music";
+      playlist_directory = "${mount}/Playlists";
       bind_to_address = "any";
       port = 6600;
       audio_output = [
@@ -46,11 +51,26 @@
     };
   };
 
-  # PipeWire's socket lives in the user's runtime directory.
-  systemd.services.mpd = {
-    after = [ "mnt-illmatic-Jukebox.automount" ];
-    environment.XDG_RUNTIME_DIR = "/run/user/1000";
+  # Resolve the account's assigned UID at runtime; NixOS may allocate it.
+  systemd.services.mpd-audio-runtime = {
+    requiredBy = [ "mpd.service" ];
+    before = [ "mpd.service" ];
+    after = [ "systemd-user-sessions.service" ];
     serviceConfig = {
+      Type = "oneshot";
+      RuntimeDirectory = "mpd-audio";
+      RemainAfterExit = true;
+    };
+    script = ''
+      uid="$(${pkgs.coreutils}/bin/id -u ${lib.escapeShellArg audioUser})"
+      printf 'XDG_RUNTIME_DIR=/run/user/%s\n' "$uid" > /run/mpd-audio/environment
+    '';
+  };
+
+  systemd.services.mpd = {
+    after = [ "${utils.escapeSystemdPath mount}.automount" ];
+    serviceConfig = {
+      EnvironmentFile = "/run/mpd-audio/environment";
       SupplementaryGroups = [ "audio" "pipewire" ];
       # The first run scans the whole Jukebox share over NFS, which can
       # take a long time; don't let systemd kill it mid-scan.

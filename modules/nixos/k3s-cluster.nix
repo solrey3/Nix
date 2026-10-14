@@ -4,6 +4,8 @@ let
   cfg = config.custom.k3sCluster;
   isBootstrap = cfg.role == "bootstrap";
   isServer = cfg.role != "agent";
+  nas = config.custom.fleet.nas;
+  tailnetInterface = config.services.tailscale.interfaceName;
 in
 {
   options.custom.k3sCluster = {
@@ -16,8 +18,51 @@ in
 
     serverAddress = lib.mkOption {
       type = lib.types.str;
-      default = "https://kilo:6443";
+      default = "https://${cfg.endpointHost}:6443";
       description = "URL of the bootstrap k3s server over Tailscale MagicDNS.";
+    };
+
+    endpointHost = lib.mkOption {
+      type = lib.types.str;
+      default = "kilo";
+      description = "Stable cluster endpoint hostname, shared by the URL and TLS SANs.";
+    };
+
+    tlsSANs = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ cfg.endpointHost ];
+      description = "Names included in every server's API certificate.";
+    };
+
+    workloadSelector = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = { "kubernetes.io/hostname" = config.services.k3s.nodeName; };
+      description = "Selector for workloads with node-local PVCs; defaults to the deploying node, independent of endpoint DNS.";
+    };
+
+    serviceURLs = lib.mapAttrs
+      (name: port: lib.mkOption {
+        type = lib.types.str;
+        default = "http://${cfg.endpointHost}.local:${port}";
+        description = "Dashboard URL for ${name}; override for ingress DNS.";
+      })
+      {
+        jellyfin = "8096";
+        navidrome = "4533";
+        sabnzbd = "8080";
+        pihole = "8081/admin";
+      };
+
+    mediaUID = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 1000;
+      description = "NAS-compatible SABnzbd file owner UID (not necessarily the desktop UID).";
+    };
+
+    mediaGID = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 100;
+      description = "NAS-compatible SABnzbd file owner GID.";
     };
 
     tokenFile = lib.mkOption {
@@ -29,7 +74,7 @@ in
     deployWorkloads = lib.mkOption {
       type = lib.types.bool;
       default = isBootstrap;
-      description = "Install the manifests in kubernetes/homelab.yaml from this server.";
+      description = "Render and install kubernetes/homelab.yaml.in from this server.";
     };
   };
 
@@ -88,22 +133,40 @@ in
       environmentFile = "/run/k3s-tailnet/environment";
       gracefulNodeShutdown.enable = true;
       extraFlags = [
-        "--flannel-iface=tailscale0"
-      ] ++ lib.optionals isServer [
-        "--tls-san=kilo"
+        "--flannel-iface=${tailnetInterface}"
+      ] ++ lib.optionals isServer (map (san: "--tls-san=${san}") cfg.tlsSANs) ++ lib.optionals isServer [
         "--write-kubeconfig-mode=0640"
         "--write-kubeconfig-group=k3s"
       ];
       manifests = lib.mkIf cfg.deployWorkloads {
-        homelab.source = ../../kubernetes/homelab.yaml;
+        homelab.source = pkgs.writeText "homelab.yaml" (lib.replaceStrings
+          [
+            "@NODE_SELECTOR@"
+            "@JUKEBOX_PATH@"
+            "@MOVIES_PATH@"
+            "@TV_PATH@"
+            "@SPORTS_PATH@"
+            "@DOWNLOADS_PATH@"
+            "@MEDIA_UID@"
+            "@MEDIA_GID@"
+            "@JELLYFIN_URL@"
+            "@NAVIDROME_URL@"
+            "@SABNZBD_URL@"
+            "@PIHOLE_URL@"
+          ]
+          ([ (builtins.toJSON cfg.workloadSelector) ]
+            ++ map (share: builtins.toJSON "${nas.mountRoot}/${share}") [ "Jukebox" "Movies" "TV" "Sports" "Downloads" ]
+            ++ [ (toString cfg.mediaUID) (toString cfg.mediaGID) ]
+            ++ map lib.escapeXML [ cfg.serviceURLs.jellyfin cfg.serviceURLs.navidrome cfg.serviceURLs.sabnzbd cfg.serviceURLs.pihole ])
+          (builtins.readFile ../../kubernetes/homelab.yaml.in));
       };
     };
 
     # Only tailnet peers can reach the Kubernetes API, etcd, kubelet, or
     # flannel VXLAN. CNI interfaces remain trusted for local pod traffic.
     networking.firewall = {
-      allowedUDPPorts = [ 41641 ];
-      interfaces.tailscale0 = {
+      allowedUDPPorts = [ config.services.tailscale.port ];
+      interfaces.${tailnetInterface} = {
         allowedTCPPorts = [ 6443 10250 ] ++ lib.optionals isServer [ 2379 2380 ];
         allowedUDPPorts = [ 8472 ];
       };
@@ -119,37 +182,19 @@ in
     ];
 
     users.groups.k3s = { };
-    users.users.budchris.extraGroups = [ "k3s" ];
+    users.users.${config.custom.fleet.primaryUser}.extraGroups = [ "k3s" ];
 
     # Make illmatic's media available on every node so the workloads can move
     # once their application-data PVCs use shared or replicated storage.
     boot.supportedFilesystems = [ "nfs" ];
-    fileSystems = {
-      "/mnt/illmatic/Jukebox" = {
-        device = "illmatic:/volume1/Jukebox";
-        fsType = "nfs";
-        options = [ "_netdev" "nofail" "x-systemd.automount" "x-systemd.idle-timeout=10min" ];
-      };
-      "/mnt/illmatic/Movies" = {
-        device = "illmatic:/volume1/Movies";
-        fsType = "nfs";
-        options = [ "_netdev" "nofail" "x-systemd.automount" "x-systemd.idle-timeout=10min" ];
-      };
-      "/mnt/illmatic/TV" = {
-        device = "illmatic:/volume1/TV";
-        fsType = "nfs";
-        options = [ "_netdev" "nofail" "x-systemd.automount" "x-systemd.idle-timeout=10min" ];
-      };
-      "/mnt/illmatic/Downloads" = {
-        device = "illmatic:/volume1/Downloads";
-        fsType = "nfs";
-        options = [ "_netdev" "nofail" "x-systemd.automount" "x-systemd.idle-timeout=10min" ];
-      };
-      "/mnt/illmatic/Sports" = {
-        device = "illmatic:/volume1/Sports";
-        fsType = "nfs";
-        options = [ "_netdev" "nofail" "x-systemd.automount" "x-systemd.idle-timeout=10min" ];
-      };
-    };
+    fileSystems = lib.listToAttrs (map
+      (share: {
+        name = "${nas.mountRoot}/${share}";
+        value = {
+          device = "${nas.host}:${nas.exportRoot}/${share}";
+          fsType = "nfs";
+          options = [ "_netdev" "nofail" "x-systemd.automount" "x-systemd.idle-timeout=10min" ];
+        };
+      }) [ "Jukebox" "Movies" "TV" "Downloads" "Sports" ]);
   };
 }

@@ -8,6 +8,7 @@
     ./git.nix
     ./lazyvim.nix
     ./starship.nix
+    ./zsh.nix
   ];
 
   programs.home-manager.enable = true;

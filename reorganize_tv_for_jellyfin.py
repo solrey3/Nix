@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import re
 import shutil
 from datetime import datetime
 from pathlib import Path
 
-ROOT = Path('/mnt/files1/data/shared/tv')
+ROOT = Path(os.environ.get('TV_ROOT') or '/mnt/files1/data/shared/tv').expanduser()
 
 ALIASES = {
     'Archer': 'Archer (2009)',

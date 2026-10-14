@@ -16,22 +16,48 @@
       autoUpdate = false;
       cleanup = "zap";
     };
-    taps = [ "homebrew/services" ];
-    brews = [ "node" "wget" ];
+    taps = [
+      "homebrew/services"
+      "nikitabobko/tap"
+    ];
+    brews = [
+      "curl"
+      "navidrome"
+      "neovim"
+      "node"
+      "wget"
+      "yarn"
+    ];
     casks = [
       "1password"
+      "aerospace"
       "alacritty"
+      "anki"
       "brave-browser"
+      "discord"
       "ghostty"
       "google-chrome"
+      "ledger-live"
+      "ledger-wallet"
+      "librewolf"
+      "mixxx"
+      "musicbrainz-picard"
       "nextcloud"
       "obsidian"
       "protonvpn"
+      "raspberry-pi-imager"
+      "raycast"
       "signal"
+      "soulseek"
+      "steam"
       "synology-drive"
-      "visual-studio-code"
+      "telegram"
+      "transmission"
+      "vscodium"
       "vlc"
       "wezterm"
+      "whatsapp"
+      "zen"
     ];
   };
 }

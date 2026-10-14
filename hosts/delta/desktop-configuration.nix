@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ config, pkgs, lib, username, ... }:
 
 ###################################################################################
 #
@@ -107,7 +107,7 @@
           ShowRemovableMediaOnDesktop = true;
           # Default to external storage locations
           NewWindowTarget = "PfDe";  # Desktop
-          NewWindowTargetPath = "file:///Users/budchris/Desktop/";
+          NewWindowTargetPath = "file://${config.users.users.${username}.home}/Desktop/";
         };
 
         # Dock behavior for external display
@@ -140,7 +140,7 @@
         GuestEnabled = false;
         SHOWFULLNAME = true;
         # Automatically login to avoid issues with closed clamshell at startup
-        autoLoginUser = "budchris";
+        autoLoginUser = username;
       };
 
       # Disable internal trackpad since clamshell is closed

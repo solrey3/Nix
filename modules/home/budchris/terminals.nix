@@ -1,15 +1,14 @@
-{ osConfig ? null, pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
   terminalFont = "JetBrainsMono Nerd Font Mono";
-  isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
   ghosttyFontSize = 9;
   # Desktop color-scheme discovery is inconsistent outside a full GTK desktop
   # and can make Ghostty select the light variant. Tokyo Night Dark is the
   # configured default on every host; the theme toggle still updates GTK and
   # the other terminal/bar themes.
   ghosttyTheme = "Tokyo Night Dark";
-  ghosttyBackgroundOpacity = if isQuebec then "1.0" else "0.80";
+  ghosttyBackgroundOpacity = config.custom.desktopPolicy.terminalOpacity;
 in
 {
   home.sessionVariables = {
@@ -71,7 +70,7 @@ in
   xdg.configFile."alacritty/alacritty.toml".text = ''
     [general]
     live_config_reload = true
-    import = [ "/home/budchris/.cache/tokyo-night/alacritty.toml" ]
+    import = [ "${config.xdg.cacheHome}/tokyo-night/alacritty.toml" ]
 
     [window]
     dynamic_title = true

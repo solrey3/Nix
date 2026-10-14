@@ -9,5 +9,10 @@ let
   '';
 in
 {
-  home.packages = [ cursor ];
+  home.packages = [ cursor pkgs.vscodium ];
+
+  xdg.mimeApps = {
+    enable = true;
+    defaultApplications."text/plain" = [ "codium.desktop" ];
+  };
 }

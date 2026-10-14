@@ -1,4 +1,4 @@
-{ hostname, lib, pkgs, ... }:
+{ config, hostname, lib, pkgs, ... }:
 
 {
   imports = [
@@ -46,18 +46,16 @@
   };
 
   custom.desktop = {
-    defaultSession = "plasma";
+    defaultSession = "hyprland";
     environments = {
-      plasma = true;
       cosmic = true;
       hyprland = true;
-      sway = true;
     };
   };
 
   # Goodix 27c6:609c fingerprint reader. fprintd enables fingerprint PAM
-  # authentication for SDDM/login, KDE's dedicated fingerprint stack, and
-  # swaylock. Hyprlock uses fprintd directly so password entry remains usable
+  # authentication for SDDM/login. Hyprlock uses fprintd directly so password
+  # entry remains usable
   # while it scans in parallel.
   services.fprintd.enable = true;
   programs.hyprlock.enable = true;
@@ -85,13 +83,14 @@
   # NAS file URIs before its initial full-library scan has completed.
   services.mpd.settings.bind_to_address = lib.mkForce "/run/mpd/socket";
 
-  home-manager.users.budchris = { lib, ... }: {
-    xdg.configFile."rmpc/config.ron".text = lib.mkForce ''
-      #![enable(implicit_some)]
-      (
-          address: "/run/mpd/socket",
-      )
-    '';
+  home-manager.users.${config.custom.fleet.primaryUser} = {
+    custom.mpdAddress = "/run/mpd/socket";
+    custom.desktopPolicy = {
+      output = "eDP-1";
+      mode = "2880x1920@120";
+      scale = 1.5;
+      terminalOpacity = "1.0";
+    };
   };
 
   # Change this only after reading the NixOS release notes.

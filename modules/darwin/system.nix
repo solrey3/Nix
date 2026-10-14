@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, username, ... }:
 
   ###################################################################################
   #
@@ -158,7 +158,7 @@
       swapLeftCommandAndLeftAlt = false;
     };
 
-    primaryUser = "budchris";
+    primaryUser = username;
 
   };
 

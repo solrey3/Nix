@@ -17,11 +17,10 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   custom.desktop = {
-    defaultSession = "plasma";
+    defaultSession = "hyprland";
     environments = {
-      plasma = true;
       cosmic = true;
-      sway = true;
+      hyprland = true;
     };
   };
 
@@ -38,7 +37,6 @@
   };
 
   environment.systemPackages = with pkgs; [
-    pi-coding-agent
   ];
 
   # Change this only after reading the NixOS release notes.

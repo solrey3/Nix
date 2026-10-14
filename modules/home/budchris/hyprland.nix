@@ -1,9 +1,8 @@
-{ lib, osConfig ? null, pkgs, ... }:
+{ config, lib, osConfig ? null, pkgs, ... }:
 
 let
   enabled = osConfig != null && (osConfig.custom.desktop.environments.hyprland or false);
-  isBravo = osConfig != null && osConfig.networking.hostName == "bravo";
-  isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
+  policy = config.custom.desktopPolicy;
   nvidia = osConfig != null && lib.elem "nvidia" (osConfig.services.xserver.videoDrivers or [ ]);
   # hyprpaper and hyprlock reliably decode raster images; retain the SVG source
   # alongside this rendered Quebec Wall-11-inspired wallpaper.
@@ -92,18 +91,12 @@ in
           };
         };
 
-        monitor =
-          if isQuebec then {
-            output = "eDP-1";
-            mode = "2880x1920@120";
-            position = "auto";
-            scale = 1.5;
-          } else {
-            output = "";
-            mode = "preferred";
-            position = "auto";
-            scale = 1;
-          };
+        monitor = {
+          output = policy.output;
+          mode = policy.mode;
+          position = "auto";
+          scale = policy.scale;
+        };
 
         env = [
           { _args = [ "NIXOS_OZONE_WL" "1" ]; }
@@ -119,7 +112,7 @@ in
           { _args = [ "NVD_BACKEND" "direct" ]; }
         ];
 
-        on = {
+        on = [ {
           _args = [
             "hyprland.start"
             (lua ''
@@ -137,13 +130,13 @@ in
                 hl.exec_cmd("${pkgs.networkmanagerapplet}/bin/nm-applet --indicator")
                 hl.exec_cmd("${pkgs.blueman}/bin/blueman-applet")
                 hl.exec_cmd("${pkgs.proton-vpn}/bin/protonvpn-app --start-minimized")
-                ${lib.optionalString isBravo ''
+                ${lib.optionalString policy.restartSynology ''
                   hl.exec_cmd("${pkgs.bash}/bin/sh -c 'sleep 1; ${pkgs.systemd}/bin/systemctl --user restart app-synology\\x2ddrive@autostart.service'")
                 ''}
               end
             '')
           ];
-        };
+        } ];
 
         curve = {
           _args = [ "easeOut" { type = "bezier"; points = [ [ 0.23 1 ] [ 0.32 1 ] ]; } ];
@@ -193,7 +186,7 @@ in
           { _args = [ "SUPER + ALT + L" (lua ''hl.dsp.window.move({ into_or_create_group = "right" })'') ]; }
           { _args = [ "SUPER + CTRL + G" (lua "hl.dsp.window.move({ out_of_group = true })") ]; }
           { _args = [ "SUPER + CTRL + L" (exec "${pkgs.hyprlock}/bin/hyprlock") ]; }
-          { _args = [ "SUPER + SHIFT + B" (exec "${pkgs.xdg-utils}/bin/xdg-open https://www.google.com") ]; }
+          { _args = [ "SUPER + SHIFT + B" (exec "${pkgs.firefox}/bin/firefox") ]; }
           { _args = [ "SUPER + SHIFT + P" (exec "${pkgs.firefox}/bin/firefox --private-window") ]; }
           { _args = [ "SUPER + SHIFT + F" (exec "${pkgs.xdg-utils}/bin/xdg-open $HOME") ]; }
           { _args = [ "SUPER + SHIFT + O" (exec "${pkgs.obsidian}/bin/obsidian") ]; }
