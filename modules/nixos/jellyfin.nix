@@ -32,11 +32,10 @@
   # Let Jellyfin access GPU render/video devices for hardware transcoding.
   users.users.jellyfin.extraGroups = [ "video" "render" ];
 
-  # The media libraries live on mounted data drives.
+  # The media libraries live on mounted data drives; /mnt/archive is backup-only.
   systemd.services.jellyfin = {
-    after = [ "mnt-files1.mount" "mnt-files2.mount" "mnt-archive.mount" ];
-    requires = [ "mnt-files1.mount" ];
-    wants = [ "mnt-files2.mount" "mnt-archive.mount" ];
+    after = [ "mnt-files1.mount" "mnt-files2.mount" ];
+    requires = [ "mnt-files1.mount" "mnt-files2.mount" ];
     serviceConfig.DeviceAllow = [
       "/dev/nvidia0 rw"
       "/dev/nvidiactl rw"
