@@ -92,22 +92,55 @@ end
 local function save_and_rename_note()
   local bufnr = vim.api.nvim_get_current_buf()
   local current_path = vim.api.nvim_buf_get_name(bufnr)
-  local title, note_date
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local title, created, date_value, note_value
 
-  for _, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
-    title = title or line:match("^title:%s*[\"']?(.-)[\"']?%s*$")
-    note_date = note_date or line:match("^note:%s*[\"']?(.-)[\"']?%s*$")
+  -- Frontmatter spans from the first "---" to the next "---"
+  local fm_end
+  if lines[1] and lines[1]:match("^%-%-%-%s*$") then
+    for i = 2, #lines do
+      if lines[i]:match("^%-%-%-%s*$") then
+        fm_end = i
+        break
+      end
+    end
   end
 
-  local compact_date = note_date and note_date:gsub("[^0-9]", "") or ""
-  if not title or title == "" or #compact_date < 8 then
-    vim.notify("A title and a note date are required", vim.log.levels.ERROR)
+  if fm_end then
+    for i = 2, fm_end - 1 do
+      title = title or lines[i]:match("^title:%s*[\"']?(.-)[\"']?%s*$")
+      created = created or lines[i]:match("^created:%s*(%d%d%d%d%-%d%d%-%d%d)")
+      date_value = date_value or lines[i]:match("^date:%s*(%d%d%d%d%-%d%d%-%d%d)")
+      note_value = note_value or lines[i]:match("^note:%s*(%d+)")
+    end
+  end
+
+  -- Fall back to the first H1 header when frontmatter has no title
+  if not title or title == "" then
+    for i = (fm_end or 0) + 1, #lines do
+      title = lines[i]:match("^#%s+(.+)$")
+      if title then
+        break
+      end
+    end
+  end
+
+  -- Filename date: created: (YYYY-MM-DD HH:MM:SS), then date:, then note:
+  -- (compact YYYYMMDDHHMMSS)
+  if note_value and #note_value >= 8 then
+    note_value = ("%s-%s-%s"):format(note_value:sub(1, 4), note_value:sub(5, 6), note_value:sub(7, 8))
+  else
+    note_value = nil
+  end
+  local formatted_date = created or date_value or note_value
+
+  if not title or title == "" or not formatted_date then
+    vim.notify("Missing title or date (created:/date:/note:)", vim.log.levels.ERROR)
     return
   end
 
   local slug = title:gsub("[^%w%s-]", ""):gsub("%s+", "-"):lower()
-  local date = ("%s-%s-%s"):format(compact_date:sub(1, 4), compact_date:sub(5, 6), compact_date:sub(7, 8))
-  local new_path = vim.fs.dirname(current_path) .. "/" .. date .. "-" .. slug .. ".md"
+  local new_path = vim.fs.dirname(current_path) .. "/" .. formatted_date .. "-" .. slug .. ".md"
   current_path = vim.fs.normalize(current_path)
   new_path = vim.fs.normalize(new_path)
 

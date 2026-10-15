@@ -27,10 +27,9 @@ let
     else
       pkgs.nodejs;
 
-  copilotNodeCommand =
-    if isLinux
-    then "${copilotNode}/bin/copilot-node"
-    else "${copilotNode}/bin/node";
+  # Use a stable command name: lazy.nvim caches compiled plugin configs, so
+  # embedding a store path can leave Copilot pointing at a GC'd Node wrapper.
+  copilotNodeCommand = if isLinux then "copilot-node" else "node";
 
   nvimConfig = pkgs.runCommand "budchris-nvim-config" { } ''
     cp -r ${inputs.lazyvim-starter} $out
