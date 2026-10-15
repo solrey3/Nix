@@ -14,6 +14,13 @@
 
   networking.hostName = hostname;
 
+  # Read the master Jukebox on bravo directly; no local copy or NAS sync.
+  fileSystems."/mnt/bravo/Jukebox" = {
+    device = "192.168.1.4:/";
+    fsType = "nfs4";
+    options = [ "_netdev" "nofail" "x-systemd.automount" "ro" ];
+  };
+
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
@@ -44,6 +51,10 @@
       }
     ];
   };
+
+  # Hyprland handles the panel when the lid moves; do not suspend before
+  # the external display can take over in clamshell mode.
+  services.logind.settings.Login.HandleLidSwitch = "ignore";
 
   custom.desktop = {
     defaultSession = "hyprland";
@@ -78,10 +89,14 @@
     pi-coding-agent
   ];
 
-  # Quebec's MPD and rmpc communicate over a local Unix socket. Besides
-  # avoiding an unnecessary network listener, this permits MPD to queue local
-  # NAS file URIs before its initial full-library scan has completed.
-  services.mpd.settings.bind_to_address = lib.mkForce "/run/mpd/socket";
+  # Keep MPD local to Quebec while serving music and playlists from bravo.
+  # The Jukebox root resolves playlists' ../Music entries against Music/.
+  services.mpd.settings = {
+    bind_to_address = lib.mkForce "/run/mpd/socket";
+    music_directory = lib.mkForce "/mnt/bravo/Jukebox";
+    playlist_directory = lib.mkForce "/mnt/bravo/Jukebox/Playlists";
+  };
+  systemd.services.mpd.after = lib.mkForce [ "mnt-bravo-Jukebox.automount" ];
 
   home-manager.users.${config.custom.fleet.primaryUser} = {
     custom.mpdAddress = "/run/mpd/socket";

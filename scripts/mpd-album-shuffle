@@ -3,8 +3,9 @@
 
 Random album order; tracks play in disc/track order within each album.
 
-Usage: mpd-album-shuffle <playlist> [host] [port]
+Usage: mpd-album-shuffle <playlist> [host-or-socket] [port]
 Defaults: host $MPD_HOST or alpha.local, port $MPD_PORT or 6600.
+Pass a Unix socket path (e.g. /run/mpd/socket) for local MPD.
 
 Note: only tracks already in the MPD database are queued. Run an update
 (e.g. 'mpc update' or from rmpc) after adding music to the NAS.
@@ -25,7 +26,12 @@ def mpd(cmds):
     (Sending 'close' right after a command makes MPD drop a large
     response mid-stream, so each command is read to completion.)
     """
-    sock = socket.create_connection((HOST, PORT), timeout=120)
+    if HOST.startswith("/"):
+        sock = socket.socket(socket.AF_UNIX)
+        sock.settimeout(120)
+        sock.connect(HOST)
+    else:
+        sock = socket.create_connection((HOST, PORT), timeout=120)
     f = sock.makefile("rw", encoding="utf-8", newline="\n")
     f.readline()  # greeting
     lines = []
