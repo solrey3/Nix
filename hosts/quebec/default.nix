@@ -37,24 +37,13 @@
   hardware.alsa.enablePersistence = true;
   hardware.firmware = [ pkgs.sof-firmware ];
 
-  # Keep audio devices alive when the desktop powers down the display.
-  services.pipewire.wireplumber.extraConfig."10-disable-suspend" = {
-    "monitor.alsa.rules" = [
-      {
-        matches = [
-          { "node.name" = "~alsa_input.*"; }
-          { "node.name" = "~alsa_output.*"; }
-        ];
-        actions.update-props = {
-          "session.suspend-timeout-seconds" = 0;
-        };
-      }
-    ];
+  # Suspend when the lid closes without an external display. logind's docked
+  # policy preserves clamshell use with an external monitor, where Hyprland
+  # handles the internal panel instead.
+  services.logind.settings.Login = {
+    HandleLidSwitch = "suspend";
+    HandleLidSwitchDocked = "ignore";
   };
-
-  # Hyprland handles the panel when the lid moves; do not suspend before
-  # the external display can take over in clamshell mode.
-  services.logind.settings.Login.HandleLidSwitch = "ignore";
 
   custom.desktop = {
     defaultSession = "hyprland";
