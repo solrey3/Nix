@@ -289,6 +289,14 @@ in
           on-timeout = ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'
           on-resume = ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
         }
+        ${lib.optionalString isQuebec ''
+        # Keep AC sessions awake; on battery, sleep after 30 minutes of idle.
+        # Check at timeout so plugging in during the idle period cancels sleep.
+        listener {
+          timeout = 1800
+          on-timeout = ${pkgs.bash}/bin/sh -c 'if [ -r /sys/class/power_supply/ACAD/online ] && [ "$( ${pkgs.coreutils}/bin/cat /sys/class/power_supply/ACAD/online )" = 0 ]; then ${pkgs.systemd}/bin/systemctl suspend; fi'
+        }
+        ''}
       '';
 
       "hypr/hyprlock.conf".text = ''
