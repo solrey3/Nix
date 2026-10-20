@@ -51,9 +51,11 @@ Groups are tabbed containers; their tabs appear above the grouped window.
 
 | Key | Action |
 | --- | --- |
-| `Print` | Select, save, and copy a region |
+| `Print` or `Super + Shift + S` | Select, save, and copy a region |
 | `Shift + Print` | Save and copy the current output |
 | `Ctrl + Print` | Select a region and open it in Tensaku |
+
+Screenshots are saved in `Screenshots` under your XDG Pictures directory (normally `~/Pictures/Screenshots`). Press `Esc` during region selection to cancel.
 
 Brightness, volume, microphone-mute, and media keys use their standard hardware keys. Quickshell provides the panel, application tray, and notification center. The panel shows workspaces, date and time, CPU, memory, disk, volume, battery, and notifications. Its application tray hosts Proton VPN, NetworkManager, Blueman, 1Password, and other StatusNotifier/AppIndicator applications.
 
