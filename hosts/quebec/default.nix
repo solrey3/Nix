@@ -53,11 +53,12 @@
     };
   };
 
-  # Goodix 27c6:609c fingerprint reader. fprintd enables fingerprint PAM
-  # authentication for SDDM/login. Hyprlock uses fprintd directly so password
-  # entry remains usable
-  # while it scans in parallel.
+  # SDDM uses the login PAM stack. Fingerprint authentication supplies no
+  # password to pam_gnome_keyring, so the login keyring stays locked. Require
+  # a password at graphical login to unlock it automatically; keep fprintd
+  # available to Hyprlock (which handles fingerprints directly).
   services.fprintd.enable = true;
+  security.pam.services.login.fprintAuth = false;
   programs.hyprlock.enable = true;
   security.pam.services.hyprlock.fprintAuth = false;
 
