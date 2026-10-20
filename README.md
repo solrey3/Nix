@@ -16,13 +16,14 @@ hosts/
   golf/                      Late-2011 15-inch MacBook Pro running NixOS
   india/                     Steam Deck OLED running NixOS from SD card
   juliet/                    M4 Mac mini managed by nix-darwin
-  november/                  A1347 Mac mini running NixOS
-  papa/                      Beelink SER5 MAX running NixOS
-  oscar/                     Laptop/workstation
-  quebec/                    Framework 13 laptop/workstation
   kilo/                      Bootstrap k3s control-plane node
   lima/                      Joining k3s control-plane node
   mike/                      Joining k3s control-plane node
+  november/                  A1347 Mac mini running NixOS
+  oscar/                     Laptop/workstation
+  papa/                      Beelink SER5 MAX running NixOS
+  quebec/                    Framework 13 laptop/workstation
+  tango/                     Fleet command center
 modules/
   nixos/                     Shared NixOS services and host roles
     users/budchris.nix       User account and Home Manager integration

@@ -74,6 +74,13 @@ assert builtins.elem "testuser" cfg.nix.settings.trusted-users;
 assert lib.hasInfix "testuser ALL=" workstationCfg.security.sudo.extraConfig;
 assert lib.hasInfix ''oifname != "test-vpn" drop'' workstationCfg.networking.nftables.tables.vpn-apps-filter.content;
 assert workstationCfg.home-manager.users.testuser.home.homeDirectory == "/srv/test-home";
+assert self.nixosConfigurations.quebec.config.services.logind.settings.Login.HandleLidSwitch == "suspend";
+assert self.nixosConfigurations.quebec.config.services.logind.settings.Login.HandleLidSwitchDocked == "ignore";
+assert !(self.nixosConfigurations.quebec.config.services.pipewire.wireplumber.extraConfig ? "10-disable-suspend");
+assert lib.hasInfix "timeout = 1800"
+  self.nixosConfigurations.quebec.config.home-manager.users.budchris.xdg.configFile."hypr/hypridle.conf".text;
+assert !(lib.hasInfix "timeout = 1800"
+  self.nixosConfigurations.bravo.config.home-manager.users.budchris.xdg.configFile."hypr/hypridle.conf".text);
 assert lib.hasInfix "id -u" self.nixosConfigurations.alpha.config.systemd.services.mpd-audio-runtime.script;
 assert !(lib.hasInfix "/run/user/1000" self.nixosConfigurations.alpha.config.systemd.services.mpd-audio-runtime.script);
 pkgs.runCommand "fleet-config-tests" { nativeBuildInputs = [ python ]; } ''

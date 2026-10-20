@@ -3,6 +3,7 @@
 let
   enabled = osConfig != null && (osConfig.custom.desktop.environments.hyprland or false);
   policy = config.custom.desktopPolicy;
+  isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
   nvidia = osConfig != null && lib.elem "nvidia" (osConfig.services.xserver.videoDrivers or [ ]);
   # hyprpaper and hyprlock reliably decode raster images; retain the SVG source
   # alongside this rendered Quebec Wall-11-inspired wallpaper.
@@ -40,6 +41,32 @@ let
       ''}
     '';
   };
+  # Quebec's external connector may be named DP-* even when using an HDMI adapter.
+  # Check active Hyprland outputs rather than assuming a particular port name.
+  quebecClamshell = pkgs.writeShellScript "quebec-hyprland-clamshell" ''
+    lid=/proc/acpi/button/lid/LID0/state
+    for candidate in /proc/acpi/button/lid/*/state; do
+      if [ -r "$candidate" ]; then lid="$candidate"; break; fi
+    done
+
+    while :; do
+      if [ -r "$lid" ]; then
+        monitors=$(${pkgs.hyprland}/bin/hyprctl monitors all -j) || { ${pkgs.coreutils}/bin/sleep 2; continue; }
+        internal=$(${pkgs.jq}/bin/jq -r '.[] | select(.name == "eDP-1") | .disabled' <<< "$monitors")
+        external=$(${pkgs.jq}/bin/jq -r 'any(.[]; .name != "eDP-1" and .disabled == false)' <<< "$monitors")
+        if ${pkgs.gnugrep}/bin/grep -q closed "$lid" && [ "$external" = true ]; then
+          if [ "$internal" = false ]; then
+            ${pkgs.hyprland}/bin/hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
+          fi
+        elif [ "$internal" = true ]; then
+          # Restore the panel before a disconnected external leaves no output.
+          ${pkgs.hyprland}/bin/hyprctl eval 'hl.monitor({output="eDP-1", mode="2880x1920@120", position="auto", scale=1.5, disabled=false})'
+        fi
+      fi
+      [ "''${1:-}" = --once ] && break
+      ${pkgs.coreutils}/bin/sleep 2
+    done
+  '';
   workspaces = builtins.concatLists (builtins.genList
     (i:
       let ws = toString (i + 1); in [
@@ -159,6 +186,7 @@ in
                 -- the interactive toggle may still switch the live session.
                 hl.exec_cmd("tokyo-night-set dark")
                 hl.exec_cmd("${pkgs.hyprpaper}/bin/hyprpaper")
+                ${lib.optionalString isQuebec ''hl.exec_cmd("${quebecClamshell}")''}
                 hl.exec_cmd("${pkgs.hypridle}/bin/hypridle")
                 hl.exec_cmd("${pkgs.quickshell}/bin/qs -n -c budchris")
                 hl.exec_cmd("${pkgs.networkmanagerapplet}/bin/nm-applet --indicator")
@@ -297,6 +325,14 @@ in
           on-timeout = ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'
           on-resume = ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
         }
+        ${lib.optionalString isQuebec ''
+        # Keep AC sessions awake; on battery, sleep after 30 minutes of idle.
+        # Check at timeout so plugging in during the idle period cancels sleep.
+        listener {
+          timeout = 1800
+          on-timeout = ${pkgs.bash}/bin/sh -c 'if [ -r /sys/class/power_supply/ACAD/online ] && [ "$( ${pkgs.coreutils}/bin/cat /sys/class/power_supply/ACAD/online )" = 0 ]; then ${pkgs.systemd}/bin/systemctl suspend; fi'
+        }
+        ''}
       '';
 
       "hypr/hyprlock.conf".text = ''

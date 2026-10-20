@@ -8,9 +8,9 @@
       Address = "0.0.0.0";
       Port = 4533;
 
-      # Use the archive root so Navidrome can import playlists from
-      # /mnt/archive/Playlists while resolving their ../Music/... entries.
-      MusicFolder = "/mnt/archive";
+      # Use the master Jukebox root so Navidrome can import playlists from
+      # Playlists/ while resolving their ../Music/... entries.
+      MusicFolder = "/mnt/files2/Jukebox";
       AutoImportPlaylists = true;
       PlaylistsPath = "Playlists/**";
 
@@ -18,9 +18,9 @@
     };
   };
 
-  # Navidrome's library lives on the external Archive drive.
+  # Navidrome reads from the master Jukebox library.
   systemd.services.navidrome = {
-    after = [ "mnt-archive.mount" ];
-    requires = [ "mnt-archive.mount" ];
+    after = [ "mnt-files2.mount" ];
+    requires = [ "mnt-files2.mount" ];
   };
 }
