@@ -10,6 +10,37 @@ let
   wallpaper = ./wallpapers/quebec-wall-11-inspired.png;
   lua = lib.generators.mkLuaInline;
   exec = command: lua "hl.dsp.exec_cmd(${builtins.toJSON command})";
+  screenshot = mode: pkgs.writeShellApplication {
+    name = "desktop-screenshot-${mode}";
+    runtimeInputs = with pkgs; [
+      coreutils grim slurp wl-clipboard xdg-user-dirs libnotify
+    ] ++ lib.optionals (mode == "output") [ pkgs.hyprland pkgs.jq ]
+      ++ lib.optionals (mode == "annotate") [ pkgs.tensaku ];
+    text = ''
+      # Escape from slurp cancels without creating a file or a notification.
+      ${if mode == "output" then ''
+        output=$(hyprctl -j monitors | jq -er '.[] | select(.focused) | .name')
+      '' else ''
+        geometry=$(slurp) || exit 0
+        [ -n "$geometry" ] || exit 0
+      ''}
+      pictures=$(xdg-user-dir PICTURES)
+      directory="$pictures/Screenshots"
+      mkdir -p "$directory"
+      file=$(mktemp "$directory/Screenshot-$(date +%Y-%m-%d_%H-%M-%S)-XXXXXX.png")
+      if ! grim ${if mode == "output" then ''-o "$output"'' else ''-g "$geometry"''} "$file"; then
+        rm -f "$file"
+        notify-send "Screenshot failed" "Could not capture the screen." || true
+        exit 1
+      fi
+      ${if mode == "annotate" then ''
+        exec tensaku --filename "$file" --output-filename "$file"
+      '' else ''
+        wl-copy --type image/png < "$file"
+        notify-send "Screenshot saved and copied" "$file" || true
+      ''}
+    '';
+  };
   # Quebec's external connector may be named DP-* even when using an HDMI adapter.
   # Check active Hyprland outputs rather than assuming a particular port name.
   quebecClamshell = pkgs.writeShellScript "quebec-hyprland-clamshell" ''
@@ -70,6 +101,9 @@ in
       playerctl
       slurp
       wl-clipboard
+      (screenshot "region")
+      (screenshot "output")
+      (screenshot "annotate")
     ];
 
     wayland.windowManager.hyprland = {
@@ -223,6 +257,8 @@ in
           { _args = [ "SUPER + SHIFT + R" (exec "quickshell-toggle") ]; }
           { _args = [ "SUPER + SHIFT + T" (exec "tokyo-night-toggle") ]; }
           { _args = [ "SUPER + CTRL + U" (exec "${pkgs.ghostty}/bin/ghostty -e ${pkgs.dua}/bin/dua i $HOME") ]; }
+          # Also provide a shortcut independent of keyboard Print/Mac macros.
+          { _args = [ "SUPER + SHIFT + S" (exec "desktop-screenshot-region") ]; }
           { _args = [ "PRINT" (exec "desktop-screenshot-region") ]; }
           { _args = [ "SHIFT + PRINT" (exec "desktop-screenshot-output") ]; }
           { _args = [ "CTRL + PRINT" (exec "desktop-screenshot-annotate") ]; }
