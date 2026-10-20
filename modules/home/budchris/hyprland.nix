@@ -57,10 +57,17 @@ let
         if ${pkgs.gnugrep}/bin/grep -q closed "$lid" && [ "$external" = true ]; then
           if [ "$internal" = false ]; then
             ${pkgs.hyprland}/bin/hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
+            # Hyprland 0.56 can leave layer surfaces (wallpaper and bar) at
+            # eDP-1's former x offset. Recreating the wallpaper forces a
+            # relayout of all layers on the remaining output.
+            ${pkgs.procps}/bin/pkill -x hyprpaper || true
+            ${pkgs.hyprpaper}/bin/hyprpaper &
           fi
         elif [ "$internal" = true ]; then
           # Restore the panel before a disconnected external leaves no output.
           ${pkgs.hyprland}/bin/hyprctl eval 'hl.monitor({output="eDP-1", mode="2880x1920@120", position="auto", scale=1.5, disabled=false})'
+          ${pkgs.procps}/bin/pkill -x hyprpaper || true
+          ${pkgs.hyprpaper}/bin/hyprpaper &
         fi
       fi
       [ "''${1:-}" = --once ] && break
