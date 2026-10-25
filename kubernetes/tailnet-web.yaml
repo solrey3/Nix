@@ -1,0 +1,77 @@
+# Private HTTPS only: no Funnel annotations and no LAN web LoadBalancers.
+# Standalone proxies get one stable MagicDNS hostname per application.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jellyfin
+  namespace: media
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts: [jellyfin]
+  defaultBackend:
+    service:
+      name: jellyfin
+      port:
+        number: 8096
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: navidrome
+  namespace: media
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts: [navidrome]
+  defaultBackend:
+    service:
+      name: navidrome
+      port:
+        number: 4533
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sabnzbd
+  namespace: media
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts: [sabnzbd]
+  defaultBackend:
+    service:
+      name: sabnzbd
+      port:
+        number: 8080
+---
+# Keep Pi-hole DNS on its existing LAN LoadBalancer; proxy only the web port.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pihole-web
+  namespace: network
+spec:
+  type: ClusterIP
+  selector:
+    app: pihole
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pihole
+  namespace: network
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts: [pihole]
+  defaultBackend:
+    service:
+      name: pihole-web
+      port:
+        number: 80
