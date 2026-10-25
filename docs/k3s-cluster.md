@@ -91,14 +91,20 @@ Discover service addresses:
 kubectl get services -A
 ```
 
-Default ports are:
+Web access for Jellyfin, Navidrome, SABnzbd, and Pi-hole is private HTTPS over
+Tailscale, using `https://SERVICE.tail32b131.ts.net` (Pi-hole uses `/admin/`).
+See [the Tailscale web setup and staged cutover guide](tailnet-web.md) for the
+required admin-console configuration and OAuth secret provisioning **before
+rebuilding kilo**.
+
+The remaining LAN ports are:
 
 - nginx homelab homepage: `8082` (Traefik owns port `80`)
-- Jellyfin: `8096`
-- Navidrome: `4533`
-- SABnzbd: `8080`
-- Pi-hole admin: `8081`
 - Pi-hole DNS: TCP/UDP `53`
+
+Media web services remain HTTP internally on cluster-only services; Pi-hole's web
+port is on a separate cluster-only service. No web NodePorts are retained for
+these four applications.
 
 Point the router's LAN DNS setting at kilo's reserved address only after Pi-hole reports Ready. Keep a fallback/rescue DNS plan so a cluster outage does not lock you out of the network.
 

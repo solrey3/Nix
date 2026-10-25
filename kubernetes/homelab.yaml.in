@@ -102,7 +102,7 @@ metadata:
   name: jellyfin
   namespace: media
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: jellyfin
   ports:
@@ -185,7 +185,7 @@ metadata:
   name: navidrome
   namespace: media
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: navidrome
   ports:
@@ -266,7 +266,7 @@ metadata:
   name: sabnzbd
   namespace: media
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: sabnzbd
   ports:
@@ -471,7 +471,3 @@ spec:
       port: 53
       targetPort: dns-udp
       protocol: UDP
-    - name: http
-      port: 8081
-      targetPort: http
-      protocol: TCP

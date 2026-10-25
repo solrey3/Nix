@@ -40,17 +40,23 @@ in
       description = "Selector for workloads with node-local PVCs; defaults to the deploying node, independent of endpoint DNS.";
     };
 
+    tailnetDomain = lib.mkOption {
+      type = lib.types.str;
+      default = "tail32b131.ts.net";
+      description = "MagicDNS suffix used for private HTTPS dashboard links.";
+    };
+
     serviceURLs = lib.mapAttrs
-      (name: port: lib.mkOption {
+      (name: path: lib.mkOption {
         type = lib.types.str;
-        default = "http://${cfg.endpointHost}.local:${port}";
-        description = "Dashboard URL for ${name}; override for ingress DNS.";
+        default = "https://${name}.${cfg.tailnetDomain}${path}";
+        description = "Dashboard URL for ${name}; override for alternative ingress DNS.";
       })
       {
-        jellyfin = "8096";
-        navidrome = "4533";
-        sabnzbd = "8080";
-        pihole = "8081/admin";
+        jellyfin = "";
+        navidrome = "";
+        sabnzbd = "";
+        pihole = "/admin/";
       };
 
     mediaUID = lib.mkOption {
@@ -74,7 +80,7 @@ in
     deployWorkloads = lib.mkOption {
       type = lib.types.bool;
       default = isBootstrap;
-      description = "Render and install kubernetes/homelab.yaml.in from this server.";
+      description = "Install rendered homelab workloads, the Tailscale operator, and private HTTPS ingresses from this server.";
     };
   };
 
@@ -159,6 +165,8 @@ in
             ++ [ (toString cfg.mediaUID) (toString cfg.mediaGID) ]
             ++ map lib.escapeXML [ cfg.serviceURLs.jellyfin cfg.serviceURLs.navidrome cfg.serviceURLs.sabnzbd cfg.serviceURLs.pihole ])
           (builtins.readFile ../../kubernetes/homelab.yaml.in));
+        tailscale-operator.source = ../../kubernetes/tailscale-operator.yaml;
+        tailnet-web.source = ../../kubernetes/tailnet-web.yaml;
       };
     };
 

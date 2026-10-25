@@ -58,7 +58,12 @@ ensure that the certificate names cover the join URL.
 Other configurable settings:
 
 - `workloadSelector`: defaults to pinning stateful workloads to `kilo`.
-- `serviceURLs`: `jellyfin`, `navidrome`, `sabnzbd`, and `pihole` dashboard links.
+- `tailnetDomain`: MagicDNS suffix for private HTTPS dashboard links, default
+  `tail32b131.ts.net`. The operator discovers the actual tailnet suffix at runtime.
+- `serviceURLs`: `jellyfin`, `navidrome`, `sabnzbd`, and `pihole` dashboard links,
+  defaulting to `https://SERVICE.<tailnetDomain>` (Pi-hole includes `/admin/`).
+  These override links, not proxy hostname configuration. See
+  [private web access](tailnet-web.md) for operator credentials and access policy.
 - `mediaUID`/`mediaGID`: NAS-compatible SABnzbd ownership, default 1000/100.
   These are storage ownership policy, not dynamically inferred desktop IDs.
 

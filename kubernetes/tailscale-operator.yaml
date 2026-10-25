@@ -1,0 +1,25 @@
+# OAuth credentials are provisioned out-of-band as tailscale/operator-oauth.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tailscale
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: tailscale-operator
+  namespace: kube-system
+spec:
+  repo: https://pkgs.tailscale.com/helmcharts
+  chart: tailscale-operator
+  version: 1.104.2
+  targetNamespace: tailscale
+  valuesContent: |-
+    operatorConfig:
+      hostname: homelab-operator
+      defaultTags:
+        - tag:k8s-operator
+    proxyConfig:
+      defaultTags: tag:k8s
+    apiServerProxyConfig:
+      mode: "false"
