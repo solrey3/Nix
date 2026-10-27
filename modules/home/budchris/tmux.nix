@@ -2,13 +2,13 @@
 
 let
   tmuxClipboardCopy = pkgs.writeShellScriptBin "tmux-clipboard-copy" ''
-    if command -v wl-copy >/dev/null 2>&1; then
+    if [ -n "$WAYLAND_DISPLAY" ] && command -v wl-copy >/dev/null 2>&1; then
       exec wl-copy
     elif command -v pbcopy >/dev/null 2>&1; then
       exec pbcopy
-    elif command -v xclip >/dev/null 2>&1; then
+    elif [ -n "$DISPLAY" ] && command -v xclip >/dev/null 2>&1; then
       exec xclip -selection clipboard
-    elif command -v xsel >/dev/null 2>&1; then
+    elif [ -n "$DISPLAY" ] && command -v xsel >/dev/null 2>&1; then
       exec xsel --clipboard --input
     else
       cat >/dev/null
@@ -46,16 +46,19 @@ in
       set -g mouse on
 
       # Clipboard integration. OSC52 lets supporting terminals receive clipboard
-      # writes; copy-pipe uses the first local clipboard helper available.
+      # writes (including over SSH); use the helper for local clipboard access.
+      # The default command also covers double/triple-click and other copy actions.
       set -g set-clipboard on
+      set -s copy-command "${tmuxClipboardCopy}/bin/tmux-clipboard-copy"
       set -g mode-keys vi
       bind -T copy-mode-vi v send -X begin-selection
       bind -T copy-mode-vi C-v send -X rectangle-toggle
-      bind -T copy-mode-vi y send -X copy-pipe-and-cancel "tmux-clipboard-copy"
-      bind -T copy-mode-vi Enter send -X copy-pipe-and-cancel "tmux-clipboard-copy"
-      bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "tmux-clipboard-copy"
-      bind -T copy-mode y send -X copy-pipe-and-cancel "tmux-clipboard-copy"
-      bind -T copy-mode Enter send -X copy-pipe-and-cancel "tmux-clipboard-copy"
+      bind -T copy-mode-vi y send -X copy-pipe-and-cancel
+      bind -T copy-mode-vi Enter send -X copy-pipe-and-cancel
+      bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel
+      bind -T copy-mode y send -X copy-pipe-and-cancel
+      bind -T copy-mode Enter send -X copy-pipe-and-cancel
+      bind -T copy-mode MouseDragEnd1Pane send -X copy-pipe-and-cancel
 
       # Set escape time to reduce delay
       set -sg escape-time 0
@@ -71,7 +74,7 @@ in
       set -g history-limit 50000
 
       # Keep useful environment variables available inside tmux, including pi/API vars.
-      set -ag update-environment " SSH_AUTH_SOCK DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE TERMINAL EDITOR VISUAL PI_CONFIG_DIR PI_MODEL PI_PROVIDER OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY OPENROUTER_API_KEY"
+      set -ag update-environment " SSH_AUTH_SOCK DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE TERMINAL EDITOR VISUAL PI_CONFIG_DIR PI_MODEL PI_PROVIDER OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY OPENROUTER_API_KEY"
 
       # ============================================================================
       # Key Bindings
