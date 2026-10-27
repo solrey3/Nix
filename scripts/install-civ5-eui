@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Install the official CivFanatics EUI zip into the native Linux Steam Civ V."""
+
+import argparse
+import os
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+import zipfile
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("archive", type=Path, help="EUI zip downloaded from CivFanatics")
+    parser.add_argument(
+        "--game-dir", type=Path,
+        default=Path.home() / ".local/share/Steam/steamapps/common/Sid Meier's Civilization V",
+    )
+    args = parser.parse_args()
+    dlc = args.game_dir / "steamassets/assets/dlc"
+    user_dir = Path.home() / ".local/share/Aspyr/Sid Meier's Civilization 5"
+    if not dlc.is_dir():
+        parser.error(f"native Linux Civ V DLC directory not found: {dlc}")
+
+    # EUI ships mixed-case filenames, but the Linux game looks them up in lowercase.
+    with zipfile.ZipFile(args.archive) as archive:
+        files = {}
+        texts = {}
+        for entry in archive.infolist():
+            if entry.is_dir():
+                continue
+            parts = Path(entry.filename.replace("\\", "/")).parts
+            if ".." in parts:
+                parser.error(f"unsafe zip entry: {entry.filename}")
+            folder = next((i for i, part in enumerate(parts) if part.lower() == "ui_bc1"), None)
+            if folder is not None and len(parts) > folder + 1:
+                relative = Path(*(part.lower() for part in parts[folder + 1:]))
+                if relative in files:
+                    parser.error(f"case-folding collision: {entry.filename}")
+                files[relative] = entry
+            elif len(parts) <= 2 and parts[-1].lower().startswith(("eui_text_", "csl_text_")) and parts[-1].lower().endswith(".xml"):
+                texts[parts[-1].lower()] = entry
+        if not files or not texts or not any(p.name.endswith(".civ5pkg") for p in files):
+            parser.error("zip is missing UI_bc1, EUI/CSL text, or Civ5Pkg files")
+
+        with tempfile.TemporaryDirectory(prefix=".eui-", dir=dlc) as staging:
+            staged = Path(staging) / "ui_bc1"
+            for relative, entry in files.items():
+                destination = staged / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with archive.open(entry) as source, destination.open("wb") as output:
+                    shutil.copyfileobj(source, output)
+
+            text_dir = user_dir / "Text"
+            text_dir.mkdir(parents=True, exist_ok=True)
+            target = dlc / "ui_bc1"
+            backup = dlc / ".ui_bc1-backup"
+            if backup.exists():
+                parser.error(f"remove or restore the previous backup first: {backup}")
+            if target.exists():
+                target.rename(backup)
+            try:
+                staged.rename(target)
+                for name, entry in texts.items():
+                    with archive.open(entry) as source, (text_dir / name).open("wb") as output:
+                        shutil.copyfileobj(source, output)
+            except Exception:
+                if target.exists():
+                    shutil.rmtree(target)
+                if backup.exists():
+                    backup.rename(target)
+                raise
+            if backup.exists():
+                shutil.rmtree(backup)
+
+    # Civ V caches DLC and localized text; leave saves, mods and user settings alone.
+    cache = user_dir / "cache"
+    if cache.is_dir():
+        for path in cache.iterdir():
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+    print(f"Installed EUI in {target} and text in {text_dir}; cleared game cache.")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, zipfile.BadZipFile) as exc:
+        sys.exit(f"EUI installation failed: {exc}")
