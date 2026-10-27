@@ -17,7 +17,6 @@ in
     btop
     htop
     fastfetch
-    yazi
     nnn
     mc
     tmux
@@ -113,6 +112,27 @@ in
     shellWrapperName = "y";
     enableBashIntegration = true;
     enableZshIntegration = true;
+
+    # Declarative equivalent of `ya pkg add yazi-rs/plugins:mount`.
+    plugins.mount = pkgs.yaziPlugins.mount;
+    extraPackages = lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+      pkgs.udisks
+      pkgs.util-linux
+      pkgs.ripdrag
+    ];
+    keymap.mgr.prepend_keymap = [
+      {
+        on = "M";
+        run = "plugin mount";
+        desc = "Mount, unmount, or eject drives";
+      }
+    ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+      {
+        on = "<C-d>";
+        run = "shell --orphan -- ${lib.getExe pkgs.ripdrag} -x -- %s";
+        desc = "Drag selected files out of Yazi";
+      }
+    ];
   };
 
 }
