@@ -13,6 +13,9 @@
 
   networking.networkmanager.enable = true;
 
+  # Backend for Yazi's mount manager (udisksctl).
+  services.udisks2.enable = true;
+
   # Resolve <hostname>.local on the LAN via mDNS.
   services.avahi = {
     enable = true;
