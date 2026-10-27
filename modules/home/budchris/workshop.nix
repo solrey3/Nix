@@ -38,6 +38,12 @@ in
         { output = "desc:${description}"; mode = "2560x1080@60"; position = "1920x0"; scale = 1; }
         { output = "desc:HP Inc. HP 25f 3CM8240RX0"; mode = "1920x1080@60"; position = "4480x0"; scale = 1; }
       ];
+      # Keep workspace numbering left-to-right regardless of dock discovery order.
+      workspace_rule = [
+        { workspace = "1"; monitor = "eDP-1"; default = true; persistent = true; }
+        { workspace = "2"; monitor = "desc:${description}"; default = true; persistent = true; }
+        { workspace = "3"; monitor = "desc:HP Inc. HP 25f 3CM8240RX0"; default = true; persistent = true; }
+      ];
       on = lib.mkAfter (map (event: {
         _args = [ event (lib.generators.mkLuaInline ''
           function()
