@@ -13,9 +13,8 @@ import threading
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("playback", ROOT / "scripts/jukebox_playback.py")
-p = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(p)
+sys.path.insert(0, str(ROOT / 'scripts'))
+import jukebox_playback as p
 
 
 class Fake:

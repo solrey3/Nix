@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Schema-1 playback artifact verifier and fail-closed publication state machine.
 
-No subprocess, HTTP client, credential reader or production activation adapter.
-The CLI can inspect an independently pinned store artifact. Mutating contracts
-are implemented by Publisher with an explicit evidence/command adapter; the
-shipped CLI REFUSES them until a separately reviewed live adapter exists.
+Artifact inspection is read-only. Native operations are in separate modules and
+require an independently pinned private activation plan, credential FD, explicit
+operator-coordinated window and approval. Source publication is NOT activation
+permission. No app admission lease, background action or automatic recovery.
 """
 from __future__ import annotations
 
@@ -364,7 +364,8 @@ class Publisher:
     root(artifact,path), verify_root(artifact,path), backup(snapshot)->receipt,
     verify_backup(receipt,snapshot), command(allowlisted_argv), stopped(snapshot),
     ready(artifact_or_None,snapshot), drain(). They may refuse, never guess.
-    No live adapter is shipped; fixtures exercise the complete state machine.
+    The window adapter requires explicit operator coordination, not an app lease.
+    Fixtures exercise contracts without running real service/API/root operations.
     """
     def __init__(self, home, adapter, publisher_hash, artifact_loader,
                  roots_limit=32, records_limit=128):
@@ -387,17 +388,25 @@ class Publisher:
             if create:
                 flags |= os.O_CREAT
             lock = os.open(name, flags | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600, dir_fd=fd)
+            acquired = False
             try:
                 s = os.fstat(lock)
                 require(stat.S_ISREG(s.st_mode) and s.st_uid == self.fs.uid and s.st_nlink == 1
                         and not s.st_mode & 0o077, "Unsafe lock")
                 try:
                     fcntl.flock(lock, (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | fcntl.LOCK_NB)
+                    acquired = True
                 except BlockingIOError:
                     raise Refusal("Publisher busy; no queue") from None
                 yield
             finally:
-                os.close(lock)
+                try:
+                    # Also covers observation/validation helpers failing before a
+                    # review/transaction intent exists. Drain never means kill.
+                    if acquired:
+                        self.adapter.drain()
+                finally:
+                    os.close(lock)
 
     def _read(self, leaf):
         return object_json(self.fs.read(self._path(leaf)))
@@ -499,7 +508,8 @@ class Publisher:
         evidence["roots"] = {name: self.fs.snapshot(self._path("roots/" + name))
                              for name in self.fs.names(self._path("roots"))}
         return {"registry": r, "owned": self._owned(r), "platform": observation,
-                "publisher": self.publisher_hash, "evidence": evidence}
+                "publisher": self.publisher_hash, "evidence": evidence,
+                "adapterPlan": self.adapter.review_identity() if hasattr(self.adapter, 'review_identity') else None}
 
     def _clock(self):
         boot, mono, utc = self.adapter.clock()
@@ -528,7 +538,8 @@ class Publisher:
                     "Pending review requires explicit discard")
             if rollback:
                 require(r["current"] is not None and r["lastTransaction"] is not None, "Nothing to roll back")
-                previous = self._read("transactions/" + r["lastTransaction"] + ".json")["before"]
+                last = self._read("transactions/" + r["lastTransaction"] + ".json")
+                previous = last.get("rollbackTarget", last["before"])
                 require(artifact is None if previous is None else artifact is not None and artifact.record() == previous,
                         "Rollback must select exact retained predecessor")
             else:
@@ -548,7 +559,7 @@ class Publisher:
                         self.adapter.root(artifact, root)
                     self.adapter.verify_root(artifact, root)
                 final_binding = self._binding(r, exclude=row["id"])
-                require(all(final_binding[k] == binding[k] for k in ("registry", "owned", "platform", "publisher")),
+                require(all(final_binding[k] == binding[k] for k in ("registry", "owned", "platform", "publisher", "adapterPlan")),
                         "State changed during preparation")
                 row["binding"] = final_binding
                 row["status"] = "pending"
@@ -580,12 +591,18 @@ class Publisher:
             require(self._binding(r, exclude=review_id) == row["binding"], "Stale source/settings/ownership/preflight")
             after = row["artifact"]
             artifact = self._artifact(after) if after else None
+            if hasattr(self.adapter, 'admit_target'):
+                self.adapter.admit_target(artifact)
             if artifact:
                 self.adapter.verify_root(artifact, self.fs.path / self._path("roots/" + artifact.hash))
             prior = object_json(canonical(r))
             same_directory = bool(r["current"] and after and r["current"]["directory"] == after["directory"])
+            rollback_target = r['current']
+            if r['current'] == after and r['lastTransaction'] is not None:
+                last = self._read('transactions/' + r['lastTransaction'] + '.json')
+                rollback_target = last.get('rollbackTarget', last['before'])
             tx = {"id": review_id, "phase": "consumed", "before": r["current"], "after": after,
-                  "rollback": rollback, "backup": None, "noOp": same_directory}
+                  "rollbackTarget": rollback_target, "rollback": rollback, "backup": None, "noOp": same_directory}
             self._write("transactions/" + review_id + ".json", tx, True)
             row["status"] = "consumed"
             self._write("reviews/" + review_id + ".json", row)
@@ -716,16 +733,28 @@ def main(argv=None):
     parser.add_argument("--manifest")
     parser.add_argument("--expected-manifest-sha256")
     parser.add_argument("--expected-source-revision")
+    parser.add_argument("--activation-plan")
+    parser.add_argument("--expected-plan-sha256")
+    parser.add_argument("--api-token-fd", type=int)
+    parser.add_argument("--review-id")
+    parser.add_argument("--approve", action="store_true")
     try:
         args = parser.parse_args(argv)
-        require(args.mode == "inspect", "Live mutation adapter is not shipped; separate preflight/backup/lifecycle review required")
+        if args.mode != 'inspect':
+            require(args.approve and args.activation_plan and args.expected_plan_sha256,
+                    'No native operation without independent plan and explicit approval')
+            from jukebox_cli import run
+            print(json.dumps(run(args),sort_keys=True))
+            return 0
+        require(not args.approve and not args.activation_plan and args.api_token_fd is None
+                and args.review_id is None and not args.expected_plan_sha256, 'Artifact inspect is read-only')
         require(args.manifest and args.expected_manifest_sha256 and args.expected_source_revision,
                 "Independent manifest/source pins required")
         a = Artifact(args.manifest, args.expected_manifest_sha256, args.expected_source_revision)
         print(json.dumps({"schema": 1, "artifact": a.record(), "writes": False,
-                          "liveActivationAvailable": False}, sort_keys=True))
+                          "activationAuthorized": False}, sort_keys=True))
         return 0
-    except (Refusal, OSError, ValueError, TypeError, KeyError):
+    except Exception:
         # Never echo raw input, private adapter data, filesystem errors or traceback.
         print("Playback publisher refused; inspect trusted source/evidence. No automatic recovery.", file=sys.stderr)
         return 2
