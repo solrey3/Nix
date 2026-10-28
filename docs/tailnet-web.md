@@ -13,8 +13,14 @@ at the proxy; proxy-to-application traffic stays HTTP inside the cluster.
 Application authentication remains enabled. Certificate hostnames appear in public
 certificate transparency logs, but the services are not publicly reachable.
 
-The rendered `kubernetes/homelab.yaml.in` removes LAN LoadBalancer/NodePort access to the three
-media web services and removes only the HTTP port from Pi-hole's LoadBalancer.
+Jellyfin also accepts LAN HTTP on port `8096` for TVs and other clients without
+Tailscale, for example `http://192.168.1.153:8096`. Its LoadBalancer exposes this
+port on all three cluster nodes and allocates a NodePort. Keep these ports private
+to the trusted network; do not configure router port forwarding. Use Tailscale
+HTTPS remotely. LAN HTTP is not encrypted; Jellyfin authentication remains enabled.
+
+The rendered `kubernetes/homelab.yaml.in` removes LAN LoadBalancer/NodePort access
+to Navidrome and SABnzbd and removes only the HTTP port from Pi-hole's LoadBalancer.
 Pi-hole LAN DNS (TCP/UDP 53) and the nginx homepage (8082) are unchanged.
 Cluster administrators and cluster workloads can still reach the internal HTTP
 services; this is not namespace isolation via NetworkPolicy.
@@ -117,13 +123,15 @@ sudo nixos-rebuild switch --flake .#kilo
 The k3s module installs all three manifests persistently. Ensure new files are
 included in the flake source (Git flakes omit untracked files). Do not rebuild
 before credentials and verification are complete: the new homelab manifest removes
-LAN HTTP access immediately.
+LAN HTTP access for Navidrome, SABnzbd, and Pi-hole immediately.
 
-Confirm `kubectl -n media get svc` shows `ClusterIP` for Jellyfin, Navidrome, and
-SABnzbd, and `kubectl -n network get svc pihole` exposes only TCP/UDP 53. Verify
-old LAN URLs and old NodePorts no longer connect on **all three nodes**, and verify
-Pi-hole DNS still works from a LAN client. New HTTPS URLs should fail from a
-LAN-only client with Tailscale disconnected (and no tailnet subnet routing).
+Confirm `kubectl -n media get svc` shows `LoadBalancer` for Jellyfin on port 8096,
+`ClusterIP` for Navidrome and SABnzbd, and `kubectl -n network get svc pihole`
+exposes only TCP/UDP 53. Verify Jellyfin works from a LAN-only TV/client and that
+the other application LAN URLs and old NodePorts no longer connect on **all three
+nodes**. Verify Pi-hole DNS still works from a LAN client. The HTTPS URLs should
+fail from a LAN-only client with Tailscale disconnected (and no tailnet subnet
+routing); Jellyfin's separate LAN HTTP URL should continue to work.
 
 The homepage ConfigMap links use the new URLs; kubelet propagates that mounted
 ConfigMap asynchronously. Client apps/bookmarks must also use the new URLs.
@@ -161,6 +169,13 @@ These files survive reboot, but the installed NixOS generation still references
 the old homelab manifest. **The next NixOS deployment must include this repository's
 updated k3s module and all three manifests.** Switching to an old configuration
 can restore LAN HTTP exposure. No full NixOS rebuild was performed during cutover.
+
+## Follow-up: Jellyfin LAN clients
+
+Jellyfin LAN HTTP on port 8096 was restored after the initial cutover so TVs and
+other local clients do not need Tailscale. Its private HTTPS ingress is retained.
+The original cutover checks above describe the earlier Tailscale-only state;
+Navidrome, SABnzbd, and Pi-hole web remain Tailscale-only.
 
 References:
 - https://tailscale.com/docs/kubernetes-operator/install-operator

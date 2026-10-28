@@ -99,12 +99,15 @@ rebuilding kilo**.
 
 The remaining LAN ports are:
 
+- Jellyfin: HTTP `8096` for TVs and other clients without Tailscale, for example
+  `http://192.168.1.153:8096`. Its Tailscale HTTPS endpoint remains available.
 - nginx homelab homepage: `8082` (Traefik owns port `80`)
 - Pi-hole DNS: TCP/UDP `53`
 
-Media web services remain HTTP internally on cluster-only services; Pi-hole's web
-port is on a separate cluster-only service. No web NodePorts are retained for
-these four applications.
+Navidrome and SABnzbd remain HTTP internally on cluster-only services; Pi-hole's
+web port is on a separate cluster-only service. Those three web interfaces have
+no LAN web ports or NodePorts. Jellyfin uses a LAN LoadBalancer (with an allocated
+NodePort); do not forward these ports through the router to the internet.
 
 Point the router's LAN DNS setting at kilo's reserved address only after Pi-hole reports Ready. Keep a fallback/rescue DNS plan so a cluster outage does not lock you out of the network.
 
