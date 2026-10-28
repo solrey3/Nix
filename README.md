@@ -184,6 +184,17 @@ SABnzbd runs in the k3s cluster and writes downloads to the NAS-backed `/mnt/ill
 
 `reorganize_tv_for_jellyfin.py` migrates top-level TV release folders into Jellyfin's `Series/Season NN` layout. It performs a dry run unless passed `--apply`.
 
+## Jukebox playback artifact (draft, non-activating)
+
+The dedicated `jukeboxConfigurations.bravo` output contains public configuration
+only; it does not activate a host/profile or add Home Manager declarations.
+The [isolated publisher core and limitations](docs/jukebox-playback.md) document
+its fixture-tested contracts. Live CLI mutation is disabled: no production
+adapter is shipped, and no service/configuration change is implied by evaluation
+or a source PR. Normal update validation policy below remains unchanged; the
+one-time scoped feature-validation exception is recorded in that guide and
+Jukebox issue #121.
+
 ## Development and validation
 
 Enter the development shell for `nil`, `nixpkgs-fmt`, and `statix`:

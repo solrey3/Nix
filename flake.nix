@@ -95,6 +95,13 @@
         };
     in
     {
+      # Pure data only; selecting this output never evaluates a host or package.
+      jukeboxConfigurations.bravo = import ./lib/jukebox-playback.nix {
+        sourceRevision = self.rev or null;
+        lockFile = ./flake.lock;
+        payloadDirectory = ./config/jukebox/bravo;
+      };
+
       nixosConfigurations = lib.mapAttrs
         (hostname: _: mkHost hostname (import ./hosts/${hostname}/system.nix))
         hostDirs;
