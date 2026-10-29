@@ -166,8 +166,9 @@ Ghostty is the preferred terminal through `TERMINAL` and `xdg-terminal-exec`. La
 All nodes mount the NFS exports `/Jukebox`, `/Movies`, `/TV`, `/Downloads`, and `/Sports` from the NAS at hostname `illmatic`. Navidrome reads `/Jukebox`, Jellyfin receives the media exports read-only, and SABnzbd writes to `/Downloads`. Application PVCs initially use k3s local-path storage; Jellyfin, Navidrome, and Pi-hole are pinned to `kilo`.
 
 The four application web interfaces use private Tailscale HTTPS at
-`https://SERVICE.tail32b131.ts.net` (Pi-hole: `/admin/`). Their LAN web ports are
-closed; Pi-hole LAN DNS and the nginx homepage remain available. See
+`https://SERVICE.tail32b131.ts.net` (Pi-hole: `/admin/`). Jellyfin also allows LAN
+HTTP on port `8096` for TVs and clients without Tailscale. Other application LAN
+web ports remain closed; Pi-hole LAN DNS and the nginx homepage remain available. See
 [docs/tailnet-web.md](docs/tailnet-web.md) for operator setup, credentials, and
 cutover verification.
 

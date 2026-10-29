@@ -29,7 +29,11 @@ def check(path, selector, mount, uid, gid, url):
         doc["metadata"]["name"]: doc["spec"]
         for doc in docs if doc["kind"] == "Service"
     }
-    for name in ("jellyfin", "navidrome", "sabnzbd"):
+    assert services["jellyfin"]["type"] == "LoadBalancer"
+    assert services["jellyfin"]["ports"] == [{
+        "name": "http", "port": 8096, "targetPort": "http"
+    }]
+    for name in ("navidrome", "sabnzbd"):
         assert services[name]["type"] == "ClusterIP"
         assert all("nodePort" not in port for port in services[name]["ports"])
     assert services["pihole"]["type"] == "LoadBalancer"
