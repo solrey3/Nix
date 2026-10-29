@@ -132,8 +132,12 @@ contact an API. Ungated native modes refuse before home/host/token access.
 
 ## Backup contract and remaining live-workflow gaps
 
-There is **no backup producer in this PR**. A future separately approved operation
-must create a coherent sealed backup and independently pin its receipt. The
+Backup creation stays in the **existing Jukebox deployment workflow**, not this
+Nix publisher (operator decision in #121). The companion Jukebox source helper
+`App/deploy/export_playback_receipt.py` verifies already-prepared private copies
+and seals the receipt; it does not create/copy a backup. Review both source changes
+together before any use. A future separately approved operation must create a
+coherent sealed backup and independently pin its receipt. The
 native verifier does not search/choose a convenient backup or trust reported
 hashes alone. Fixed destination:
 `App/data/deployment-backups/publisher-reviewed-<32-hex-id>/`, private owner-only
@@ -145,7 +149,11 @@ fresh native observation. Actual copied SQLite schema/rows, configuration and
 recognized state/telemetry bytes are read and independently compared. M3Us are
 hashed/preserved in place, not rewritten or represented as a full media backup.
 The receipt hash and ID are independently plan-bound; historical backups remain
-untouched. Unknown/missing/stale copies refuse before service actions.
+untouched. Unknown/missing/stale copies refuse before service actions. Exporter
+uncertainty markers `.receipt-export-intent.json` and `.receipt-pending` refuse;
+retained `export.json`, when present, must bind that exact receipt/dataset. The
+exporter refuses existing output rather than resuming; a failed export needs
+separate inspection, never deletion/retry to appear complete.
 
 The failure policy is **manual blocking only**: no automatic retry, resume,
 repair, rollback, containment stop or helper killing. A failure can leave the
@@ -156,7 +164,7 @@ Expired reviews require explicit discard under a fresh approved native window;
 consumed/uncertain transactions cannot be discarded into apparent success.
 
 Full live HM transfer and blocked-transaction recovery controllers are absent;
-CLI transfer refuses. Actual backup preparation, live admission/compatibility,
+CLI transfer refuses. Actual separately approved deployment-workflow backup preparation, live admission/compatibility,
 source/artifact/root semantics on bravo, ownership/config precedence and exact
 activation/recovery procedure still need separate review and operator approval.
 Fixtures are not deployment evidence. No merge or live action is authorized here.

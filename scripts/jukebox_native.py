@@ -396,6 +396,9 @@ class NativeIO:
         require(type(reference) is dict and set(reference) == {'id', 'hash'} and ID.fullmatch(reference['id'])
                 and HEX.fullmatch(reference['hash']) and self.offline is not None, "Backup reference invalid")
         directory = self.p['data'] / 'deployment-backups' / ('publisher-reviewed-' + reference['id'])
+        for name in ('.receipt-export-intent.json', '.receipt-pending'):
+            pending = directory / name
+            require(not pending.exists() and not pending.is_symlink(), 'Uncertain receipt export; no automatic recovery')
         ds = directory.lstat()
         require(stat.S_ISDIR(ds.st_mode) and ds.st_uid == self.p['uid'] and not ds.st_mode & 0o077,
                 'Backup directory must be private and direct')
@@ -405,8 +408,13 @@ class NativeIO:
         raw = safe_file(directory / 'receipt.json', 2 * 1024 * 1024, self.p['uid'], True)
         require(digest(raw) == reference['hash'], "Backup receipt changed")
         receipt = object_json(raw, 2 * 1024 * 1024)
-        require(set(receipt) == {'schema', 'dataset'} and receipt['schema'] == 1 and receipt['dataset'] == self.offline,
-                "Stale/unknown backup receipt")
+        require(set(receipt) == {'schema', 'dataset'} and type(receipt['schema']) is int
+                and receipt['schema'] == 1 and receipt['dataset'] == self.offline, "Stale/unknown backup receipt")
+        exported = directory / 'export.json'
+        if exported.exists() or exported.is_symlink():
+            proof = object_json(safe_file(exported, 65536, self.p['uid'], True))
+            require(proof == {'schema': 1, 'receipt': reference, 'datasetHash': digest(canonical(self.offline))},
+                    'Deployment receipt export proof differs')
         require(database_digest(directory / 'jukebox.sqlite') == self.offline['database'], "Backup SQLite mismatch")
         require(digest(safe_file(directory / 'configuration.env', uid=self.p['uid'], private=True)) == self.offline['environment'],
                 "Private configuration backup mismatch")

@@ -197,6 +197,22 @@ class NativeFixtureTests(unittest.TestCase):
                 self.assertFalse(any(name=='systemctl' and 'show' not in args for name,args in x.calls))
             finally:x.close()
 
+    def test_deployment_export_proof_and_uncertain_export_are_checked(self):
+        x=NativeFixture()
+        try:
+            target=x.seal_backup();a=x.make_adapter(x.f.a);context=a.snapshot()
+            reference=a.plan['backup']
+            proof={'schema':1,'receipt':reference,'datasetHash':p.digest(p.canonical(x.io.offline))}
+            (target/'export.json').write_bytes(p.canonical(proof));(target/'export.json').chmod(0o600)
+            self.assertEqual(a.backup(context),reference)
+            for name in ('.receipt-export-intent.json','.receipt-pending'):
+                path=target/name;path.write_bytes(b'uncertain');path.chmod(0o600)
+                with self.assertRaises(p.Refusal):a.backup(context)
+                path.unlink() # fixture only, never a recovery procedure
+            proof['datasetHash']='0'*64;(target/'export.json').write_bytes(p.canonical(proof))
+            with self.assertRaises(p.Refusal):a.backup(context)
+        finally:x.close()
+
     def test_actual_owned_pid_or_cgroup_not_closed_blocks_after_stop(self):
         x=NativeFixture()
         try:
