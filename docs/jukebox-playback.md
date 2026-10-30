@@ -154,6 +154,34 @@ fail closed; nothing is migrated, scanned into the app, deleted or force-killed.
 Playlist observation caps are 5,000 namespace entries and 128 MiB aggregate M3Us;
 individual metadata/API/command outputs have separate finite bounds.
 
+### Whole-group ownership and closure (Jukebox #126)
+
+Manager ownership checks read the child list of **every bounded known Node
+thread**, not just the main thread. The only optional child is the expected
+esbuild executable/arguments; all of its bounded thread child lists must be
+empty, including descendants that might have left the unit's group. Active
+cgroup membership must be exactly the manager plus that known compiler. Main
+and compiler start identities are rechecked; cgroup identity/members/child starts
+join the invocation digest. Unexpected owners cannot be accepted merely because
+unit status/API flags look idle.
+
+Cgroup-v2 reads are bounded and directory-descriptor anchored, no-follow and
+read-only. Require consistent `cgroup.procs` and `cgroup.events` (`populated`,
+`frozen`) across reads, a bounded unchanged regular-file namespace and the same
+named group identity. Unknown subgroups (even empty), links/nonregular nodes,
+foreign members, duplicates/malformed/oversized/changed evidence or frozen state
+refuse. Delegated/subgroup layouts are not adopted or recursively acted upon.
+
+After normal stop, first prove the prior owned PID exited (different start time
+handles PID reuse). A still-present group must have its previously observed
+identity, no members/subgroups and population=0/unfrozen. A removed group is
+absence only after explicit ENOENT below accessible anchored cgroup ancestry;
+missing/unavailable mounts, PID stat files, metadata fields or permission errors
+are NOT closure. No process/cgroup is killed, moved, emptied, repaired or
+removed by these readers. Tests use virtual proc/cgroup trees only; actual bravo
+layout/access remains a separate compatibility gate. These repeated checks do
+not replace the coordinated operator window with global atomic exclusion.
+
 The actual stop policy must be `SendSIGKILL=no`, `KillMode=control-group` before
 eligibility. **Compatibility with installed bravo has not been probed.** A
 failure here is a blocker, not permission to change the unit or weaken policy.

@@ -171,6 +171,105 @@ def file_inventory(folder, allowed_dirs=(), limit=500, exclude=()):
     return result
 
 
+def kernel_text(directory, name, limit=8192):
+    """Bounded read-only pseudo-file read; virtual files need not report a size."""
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+    try:
+        require(stat.S_ISREG(os.fstat(fd).st_mode), 'Unexpected kernel metadata type')
+        data = bytearray()
+        while True:
+            chunk = os.read(fd, min(4096, limit + 1 - len(data)))
+            if not chunk: break
+            data.extend(chunk); require(len(data) <= limit, 'Kernel metadata exceeds bound')
+        try: return data.decode('ascii')
+        except UnicodeError: raise Refusal('Invalid kernel metadata encoding') from None
+    finally: os.close(fd)
+
+
+def process_ids(text):
+    values = text.split()
+    require(len(values) <= 128 and len(values) == len(set(values)) and
+            all(value.isascii() and value.isdecimal() and len(value) <= 10 and str(int(value)) == value and 1 < int(value) <= 2147483647
+                for value in values), 'Unknown/duplicate process metadata')
+    return set(values)
+
+
+def process_stat(root, pid, *, allow_missing=False):
+    """Only proven PID-directory ENOENT is absence; unavailable procfs/stat is not."""
+    require(pid.isascii() and pid.isdecimal() and len(pid) <= 10 and str(int(pid)) == pid
+            and 1 < int(pid) <= 2147483647, 'Invalid process identity')
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    parent = os.open(root, flags)
+    try:
+        try: fd = os.open(pid, flags, dir_fd=parent)
+        except FileNotFoundError:
+            require(allow_missing, 'Process disappeared')
+            return None
+        try: raw = kernel_text(fd, 'stat')
+        finally: os.close(fd)
+    finally: os.close(parent)
+    require(raw.split(' ', 1)[0] == pid and ')' in raw, 'Process metadata identity differs')
+    fields = raw.rsplit(')', 1)[1].strip().split()
+    require(len(fields) >= 20 and fields[19].isascii() and fields[19].isdecimal(), 'Process metadata incomplete')
+    return fields
+
+
+def cgroup_snapshot(root, group, *, allow_missing=False):
+    """Known non-delegated cgroup-v2 layout only; never adopt or traverse subgroups."""
+    root = Path(root)
+    require(root.is_absolute() and root == Path(os.path.abspath(root)) and type(group) is str
+            and len(group) <= 4096 and group.startswith('/') and len(group[1:].split('/')) <= 128
+            and all(part not in ('', '.', '..') for part in group[1:].split('/')), 'Unsafe cgroup path')
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    def opened(missing):
+        fd = os.open('/', flags)
+        try:
+            # Missing/unavailable cgroup mount is never evidence of process exit.
+            for part in root.parts[1:]:
+                child = os.open(part, flags, dir_fd=fd); os.close(fd); fd = child
+            for part in group[1:].split('/'):
+                try: child = os.open(part, flags, dir_fd=fd)
+                except FileNotFoundError:
+                    require(missing, 'Active cgroup disappeared')
+                    os.close(fd); return None
+                os.close(fd); fd = child
+            return fd
+        except BaseException:
+            os.close(fd); raise
+    def read(fd):
+        pids = process_ids(kernel_text(fd, 'cgroup.procs'))
+        events = {}
+        for line in kernel_text(fd, 'cgroup.events', 4096).splitlines():
+            fields = line.split()
+            require(len(fields) == 2 and fields[0] in ('populated', 'frozen') and
+                    fields[0] not in events and fields[1] in ('0', '1'), 'Unknown cgroup events')
+            events[fields[0]] = fields[1]
+        require(set(events) == {'populated', 'frozen'} and events['frozen'] == '0', 'Cgroup events unavailable/frozen')
+        return pids, events['populated'] == '1'
+    fd = opened(allow_missing)
+    if fd is None: return None
+    try:
+        before = os.fstat(fd); identity = (before.st_dev, before.st_ino)
+        def namespace():
+            names = {}
+            with os.scandir(fd) as entries:
+                for count, entry in enumerate(entries):
+                    require(count < 512, 'Cgroup namespace exceeds bound')
+                    info = entry.stat(follow_symlinks=False)
+                    require(stat.S_ISREG(info.st_mode), 'Unexpected cgroup subgroup/link/node; no adoption')
+                    names[entry.name] = (info.st_dev, info.st_ino, info.st_mode)
+            return names
+        first = read(fd); names = namespace()
+        require(read(fd) == first and namespace() == names, 'Cgroup membership/events/namespace changed')
+        named = opened(False)
+        try:
+            current = os.fstat(named)
+            require((current.st_dev, current.st_ino) == identity, 'Cgroup identity changed')
+        finally: os.close(named)
+        return {'identity': identity, 'pids': first[0], 'populated': first[1]}
+    finally: os.close(fd)
+
+
 class NativeIO:
     def __init__(self, paths, runner, api, *, now=time.time, sleep=time.sleep):
         self.p, self.runner, self.api, self.now, self.sleep = paths, runner, api, now, sleep
@@ -179,6 +278,7 @@ class NativeIO:
         self.baseline_config = None
         self.backup_receipts = {}
         self.manager_group = None
+        self.manager_group_identity = None
         self.manager_runtime = None
         self.manager_process = None
 
@@ -243,39 +343,74 @@ class NativeIO:
                 'environment': digest(env), 'playlists': {'count': count, 'hash': playlists.hexdigest()}}
 
     def _process(self, unit):
-        pid = unit['MainPID']; require(pid.isdigit() and int(pid) > 1 and unit['ActiveState'] == 'active' and unit['Result'] == 'success', "Manager not active/settled")
+        pid = unit['MainPID']; require(pid.isascii() and pid.isdecimal() and len(pid) <= 10
+                and 1 < int(pid) <= 2147483647 and unit['ActiveState'] == 'active' and unit['Result'] == 'success', "Manager not active/settled")
         proc = self.p['proc'] / pid
+        initial = process_stat(self.p['proc'], pid)
+        require(initial[0] != 'Z', 'Manager process identity unavailable')
         require((proc / 'cwd').resolve(strict=True) == self.p['app'], 'Manager cwd is not the reviewed project app')
-        threads = []
+        threads = []; tasks = []
         for entry in (proc / 'task').iterdir():
-            require(len(threads) < 128, "Thread inventory bound")
-            threads.append((entry / 'comm').read_text().strip())
-        require(threads.count('WorkerThread') == 1 and all(x in ('MainThread', 'DelayedTaskSche', 'V8Worker',
+            require(len(threads) < 128 and entry.name.isascii() and entry.name.isdecimal()
+                    and len(entry.name) <= 10 and str(int(entry.name)) == entry.name and int(entry.name) > 1, "Thread inventory bound/identity")
+            threads.append((entry / 'comm').read_text().strip()); tasks.append(entry)
+        require(threads.count('WorkerThread') == 1 and threads.count('MainThread') == 1
+                and (proc / 'task' / pid) in tasks and threads[tasks.index(proc / 'task' / pid)] == 'MainThread'
+                and all(x in ('MainThread', 'DelayedTaskSche', 'V8Worker',
                 'SignalInspector', 'WorkerThread', 'libuv-worker') for x in threads), "Unexpected worker ownership")
         descriptors = []
         for entry in (proc / 'fd').iterdir():
             require(len(descriptors) < 512, "Descriptor inventory bound")
             descriptors.append(os.readlink(entry))
         require(str(self.p['data'] / 'jukebox.sqlite') in descriptors, "Actual app database path not proven")
-        children = (proc / 'task' / pid / 'children').read_text().split()
-        require(len(children) <= 1, "Unexpected manager children")
+        children = set()
+        for task in tasks:
+            fd = os.open(task, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try: found = process_ids(kernel_text(fd, 'children'))
+            finally: os.close(fd)
+            require(not children.intersection(found), 'Conflicting thread child ownership')
+            children.update(found)
+        require(len(children) <= 1 and pid not in children, "Unexpected manager children")
         package = object_json(safe_file(self.p['app'] / 'node_modules/esbuild/package.json'))
         expected = (self.p['app'] / 'node_modules/@esbuild/linux-x64/bin/esbuild').resolve(strict=True)
+        child_starts = {}
         for child in children:
             require(child.isdigit(), "Invalid child identity")
             cp = self.p['proc'] / child
-            status = (cp / 'stat').read_text().rsplit(')', 1)[1].strip().split()
+            status = process_stat(self.p['proc'], child)
             require(status[0] != 'Z' and (cp / 'exe').resolve(strict=True) == expected, "Unexpected/defunct child")
             argv = (cp / 'cmdline').read_bytes().split(b'\0')
-            require([x.decode() for x in argv[1:] if x] == ['--service=' + package['version'], '--ping'] and
-                    not (cp / 'task' / child / 'children').read_text().strip(), "Unexpected compiler ownership")
+            require([x.decode() for x in argv[1:] if x] == ['--service=' + package['version'], '--ping'], "Unexpected compiler ownership")
+            child_tasks = []
+            for task in (cp / 'task').iterdir():
+                require(len(child_tasks) < 128 and task.name.isascii() and task.name.isdecimal()
+                        and len(task.name) <= 10 and str(int(task.name)) == task.name and int(task.name) > 1, 'Compiler thread inventory bound/identity')
+                child_tasks.append(task)
+                fd = os.open(task, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                try: require(not process_ids(kernel_text(fd, 'children')), 'Unexpected compiler descendants')
+                finally: os.close(fd)
+            require((cp / 'task' / child) in child_tasks, 'Compiler main thread unavailable')
+            child_starts[child] = status[19]
         # This proves bounded observations, not an app admission lease.
-        fields = (proc / 'stat').read_text().rsplit(')', 1)[1].strip().split()
-        require(len(fields) >= 20 and fields[0] != 'Z', "Manager process identity unavailable")
+        fields = process_stat(self.p['proc'], pid)
+        require(fields[0] != 'Z' and fields[19] == initial[19], "Manager process identity unavailable/changed")
+        group = unit['ControlGroup']
+        require(group.startswith('/') and group.endswith('/' + UNIT), 'Manager cgroup identity unavailable')
+        membership = cgroup_snapshot(self.p['cgroup'], group)
+        require(membership is not None and membership['populated'] is True
+                and membership['pids'] == children | {pid}, 'Unknown/inconsistent manager cgroup ownership')
+        final = process_stat(self.p['proc'], pid)
+        require(final[0] != 'Z' and final[19] == initial[19], 'Manager process changed during group observation')
+        for child, start in child_starts.items():
+            final_child = process_stat(self.p['proc'], child)
+            require(final_child[0] != 'Z' and final_child[19] == start, 'Compiler changed during group observation')
+        self.manager_group, self.manager_group_identity = group, membership['identity']
         self.manager_runtime = {'exe': str((proc / 'exe').resolve(strict=True)),
                                 'argv': digest((proc / 'cmdline').read_bytes())}
         self.manager_process = (pid, fields[19])
-        return digest(canonical({'pid': pid, 'invocation': unit['InvocationID'], 'start': fields[19]}))
+        return digest(canonical({'pid': pid, 'invocation': unit['InvocationID'], 'start': fields[19],
+                                 'cgroup': group, 'groupIdentity': membership['identity'], 'members': sorted(membership['pids']),
+                                 'children': child_starts}))
 
     def observe(self, stopped=False):
         unit = self._unit(UNIT, True)
@@ -310,14 +445,15 @@ class NativeIO:
         if stopped:
             require(unit['MainPID'] == '0' and unit['ActiveState'] == 'inactive' and unit['SubState'] == 'dead' and unit['Result'] == 'success',
                     "Normal stop/closure unavailable")
-            require(self.manager_group is not None and self.manager_process is not None, "Prior cgroup/process identity unavailable")
+            require(self.manager_group is not None and self.manager_group_identity is not None
+                    and self.manager_process is not None, "Prior cgroup/process identity unavailable")
             old_pid, old_start = self.manager_process
-            old_stat = self.p['proc'] / old_pid / 'stat'
-            if old_stat.exists():
-                old_fields = old_stat.read_text().rsplit(')', 1)[1].strip().split()
-                require(len(old_fields) >= 20 and old_fields[19] != old_start, 'Prior owned process has not exited')
-            group_file = self.p['cgroup'] / self.manager_group.lstrip('/') / 'cgroup.procs'
-            require(not group_file.exists() or not group_file.read_text().strip(), "Owned cgroup still populated")
+            old_fields = process_stat(self.p['proc'], old_pid, allow_missing=True)
+            require(old_fields is None or old_fields[19] != old_start, 'Prior owned process has not exited')
+            membership = cgroup_snapshot(self.p['cgroup'], self.manager_group, allow_missing=True)
+            require(membership is None or (membership['identity'] == self.manager_group_identity
+                    and not membership['pids'] and membership['populated'] is False),
+                    'Owned cgroup identity/recursive closure unavailable')
             return {**immutable, 'invocation': digest(b'stopped'), 'processClosed': True, 'jobsIdle': False,
                     'config': None, 'scan': None, 'schedule': None, 'scheduleStorage': self.schedule_storage, 'zonesOwned': False}
         group = unit['ControlGroup']

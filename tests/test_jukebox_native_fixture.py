@@ -58,14 +58,14 @@ class NativeFixture:
     def create_proc(self):
         proc=self.paths['proc']/str(self.pid);task=proc/'task'/str(self.pid);task.mkdir(parents=True)
         (task/'comm').write_text('MainThread\n');(task/'children').write_text('')
-        worker=proc/'task'/str(self.pid+1000);worker.mkdir();(worker/'comm').write_text('WorkerThread\n')
+        worker=proc/'task'/str(self.pid+1000);worker.mkdir();(worker/'comm').write_text('WorkerThread\n');(worker/'children').write_text('')
         fields=['S']+['0']*18+['12345']+['0']*4
         (proc/'stat').write_text(str(self.pid)+' (node) '+' '.join(fields))
         (proc/'cmdline').write_bytes(b'node\0--import\0tsx\0server/index.ts\0')
         (proc/'exe').symlink_to(self.node)
         (proc/'cwd').symlink_to(self.paths['app'])
         (proc/'fd').mkdir();(proc/'fd/7').symlink_to(self.paths['data']/'jukebox.sqlite')
-        group=self.paths['cgroup']/'user.slice'/n.UNIT;group.mkdir(parents=True,exist_ok=True);(group/'cgroup.procs').write_text(str(self.pid))
+        group=self.paths['cgroup']/'user.slice'/n.UNIT;group.mkdir(parents=True,exist_ok=True);(group/'cgroup.procs').write_text(str(self.pid));(group/'cgroup.events').write_text('populated 1\nfrozen 0\n')
 
     def unit(self,name):
         v={key:'' for key in n.PROPS}
@@ -92,6 +92,7 @@ class NativeFixture:
         if 'stop' in args:
             shutil.rmtree(self.paths['proc']/str(self.pid));self.active=False
             (self.paths['cgroup']/'user.slice'/n.UNIT/'cgroup.procs').write_text('')
+            (self.paths['cgroup']/'user.slice'/n.UNIT/'cgroup.events').write_text('populated 0\nfrozen 0\n')
         elif 'start' in args:
             self.pid+=1;self.active=True;self.create_proc();self.captured_at+=100
             self.cold_schedule=cold_state(self.captured_at)
