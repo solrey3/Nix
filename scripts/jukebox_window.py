@@ -6,11 +6,13 @@ fixture IO. The publisher CLI stays gated until exact activation-plan review.
 """
 from __future__ import annotations
 import math
+import re
+from datetime import datetime
 from pathlib import Path
 import sqlite3
 import stat
 
-from jukebox_playback import COMMANDS, HEX, ID, Refusal, canonical, digest, require
+from jukebox_playback import COMMANDS, HEX, ID, Refusal, canonical, digest, object_json, require
 
 WINDOW = "operator-coordinated-no-concurrent-clients-or-external-edits-v1"
 POLICY = "manual-block-no-retry-resume-rollback-or-containment-stop-v1"
@@ -46,14 +48,108 @@ def validate_plan(plan, expected_digest, publisher_digest, artifact):
     return plan
 
 
-def database_digest(path):
+SCHEDULE_SQL = "CREATE TABLE collector_schedule_v1(station TEXT PRIMARY KEY CHECK(station='KEXP'),json TEXT NOT NULL)"
+SCHEDULE_RIGHTS = 'I confirm permission for recurring private KEXP metadata lookup under the current source terms.'
+SCHEDULE_FIELDS = {'station', 'enabled', 'intervalHours', 'startHour', 'endHour', 'version', 'revision',
+                   'nextAt', 'activeSlot', 'watermark', 'failures', 'rightsConfirmedAt', 'rightsAttestation', 'last'}
+SCHEDULE_OUTCOMES = {'never', 'configured', 'complete', 'partial', 'failed', 'skipped-busy', 'skipped-cooldown',
+                     'skipped-late', 'disabled-failures', 'disabled-access', 'disabled-interrupted',
+                     'disabled-feature', 'disabled-uncertain'}
+UUID4 = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z')
+
+
+def epoch(value):
+    return type(value) is int and 0 <= value <= 8640000000000000
+
+
+def disabled_schedule_state(state):
+    """Strict current app DTO, not an inferred/partial disabled state."""
+    require(type(state) is dict and set(state) == SCHEDULE_FIELDS, 'Unknown scheduler state shape')
+    require(state['station'] == 'KEXP' and type(state['version']) is int and state['version'] == 1
+            and state['enabled'] is False and state['nextAt'] is None and state['activeSlot'] is None,
+            'Scheduler must be independently disabled and slot-free')
+    require(type(state['intervalHours']) is int and state['intervalHours'] in (1, 2, 3, 4, 6, 8, 12, 24)
+            and type(state['startHour']) is int and type(state['endHour']) is int
+            and 0 <= state['startHour'] < state['endHour'] <= 24, 'Invalid scheduler definition')
+    require(type(state['revision']) is str and UUID4.fullmatch(state['revision'])
+            and (state['watermark'] is None or epoch(state['watermark']))
+            and type(state['failures']) is int and 0 <= state['failures'] <= 3, 'Invalid scheduler identity/counters')
+    last = state['last']
+    require(type(last) is dict and set(last) == {'kind', 'at', 'slotAt', 'runId'}
+            and type(last['kind']) is str and last['kind'] in SCHEDULE_OUTCOMES and epoch(last['at'])
+            and (last['slotAt'] is None or epoch(last['slotAt']))
+            and (last['runId'] is None or type(last['runId']) is str and UUID4.fullmatch(last['runId'])),
+            'Invalid scheduler outcome')
+    rights = state['rightsConfirmedAt']
+    if rights is None:
+        require(state['rightsAttestation'] is None, 'Ambiguous scheduler rights state')
+    else:
+        require(type(rights) is str and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z', rights)
+                and state['rightsAttestation'] == SCHEDULE_RIGHTS, 'Invalid scheduler rights state')
+        try: datetime.strptime(rights, '%Y-%m-%dT%H:%M:%S.%fZ')
+        except ValueError: raise Refusal('Invalid scheduler rights date') from None
+    return state
+
+
+def scheduler_storage(db, root):
+    """Read-only evidence from the SAME transaction as logical table hashes.
+
+    No API claim, cached default or table count alone can establish absence.
+    Exact current schema + bounded rows + strict JSON/root/state must be proven.
+    """
+    schema = db.execute("SELECT sql FROM sqlite_schema WHERE type='table' AND name='collector_schedule_v1'").fetchall()
+    require(len(schema) == 1 and schema[0][0] == SCHEDULE_SQL, 'Scheduler schema unavailable/unsupported')
+    columns = [(row['name'], row['type'], row['notnull'], row['dflt_value'], row['pk'])
+               for row in db.execute('PRAGMA table_info(collector_schedule_v1)')]
+    require(columns == [('station', 'TEXT', 0, None, 1), ('json', 'TEXT', 1, None, 0)]
+            and not db.execute("SELECT 1 FROM sqlite_schema WHERE type='trigger' AND tbl_name='collector_schedule_v1'").fetchone(),
+            'Scheduler schema/ownership ambiguous')
+    rows = db.execute('SELECT station,substr(json,1,16385) value,length(json) n FROM collector_schedule_v1 LIMIT 2').fetchall()
+    require(len(rows) <= 1, 'Unknown scheduler rows')
+    if not rows: return {'kind': 'empty'}
+    row = rows[0]
+    require(row['station'] == 'KEXP' and type(row['value']) is str and type(row['n']) is int
+            and 0 < row['n'] <= 16384 and len(row['value'].encode()) <= 16384, 'Invalid scheduler storage')
+    record = object_json(row['value'].encode(), 16384)
+    require(set(record) == SCHEDULE_FIELDS | {'root'} and record['root'] == str(root), 'Scheduler storage root/shape differs')
+    state = {key: value for key, value in record.items() if key != 'root'}
+    disabled_schedule_state(state)
+    return {'kind': 'stored', 'state': state}
+
+
+def schedule_observation(status, storage):
+    """Project volatility only after independent SQLite evidence, never an app lease."""
+    require(type(status) is dict and set(status) == {'capturedAt', 'available', 'capability', 'active', 'blocked', 'state'}
+            and epoch(status['capturedAt']) and status['available'] is True and status['capability'] is False
+            and status['active'] is False and status['blocked'] is False, 'Scheduler unavailable/busy/ambiguous')
+    state = disabled_schedule_state(status['state'])
+    require(type(storage) is dict and storage.get('kind') in ('empty', 'stored'), 'Independent scheduler storage evidence required')
+    projected = {**state, 'last': dict(state['last'])}
+    if storage['kind'] == 'empty':
+        require(set(storage) == {'kind'}, 'Unknown scheduler absence evidence')
+        projected.pop('revision'); projected['last'].pop('at')
+        require(projected == {'station': 'KEXP', 'enabled': False, 'intervalHours': 1, 'startHour': 0, 'endHour': 24,
+                             'version': 1, 'nextAt': None, 'activeSlot': None, 'watermark': None, 'failures': 0,
+                             'rightsConfirmedAt': None, 'rightsAttestation': None,
+                             'last': {'kind': 'never', 'slotAt': None, 'runId': None}},
+                'Empty storage does not match exact unconfigured API defaults')
+    else:
+        require(set(storage) == {'kind', 'state'}, 'Unknown configured scheduler evidence')
+        disabled_schedule_state(storage['state'])
+        require(state == storage['state'], 'API scheduler state differs from stored row')
+    return {'available': True, 'capability': False, 'active': False, 'blocked': False,
+            'storage': storage['kind'], 'state': projected}
+
+
+def database_digest(path, *, scheduler_root=None):
     """Logical rows/schema + integrity, read-only, no migrations/checkpoints."""
     path = Path(path)
     s = path.lstat()
     require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, "Unsafe database")
     db = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=1)
     try:
-        return database_contents(db)
+        logical = database_contents(db)
+        return (logical, scheduler_storage(db, scheduler_root)) if scheduler_root is not None else logical
     finally:
         db.close()
 
@@ -119,7 +215,7 @@ class WindowAdapter:
     def _observe(self, stopped=False):
         observation = self.io.observe(stopped=stopped)
         require(type(observation) is dict and set(observation) == {"profiles", "tools", "unit", "stopPolicy", "source",
-                "invocation", "processClosed", "jobsIdle", "privateState", "config", "scan", "schedule", "zonesOwned"},
+                "invocation", "processClosed", "jobsIdle", "privateState", "config", "scan", "schedule", "scheduleStorage", "zonesOwned"},
                 "Observation coverage unavailable")
         for key in ("profiles", "tools", "unit", "stopPolicy", "source", "privateState"):
             require(type(observation[key]) is str and HEX.fullmatch(observation[key]), "Observation digest unavailable")
@@ -137,10 +233,7 @@ class WindowAdapter:
             require(type(scan) is dict and scan.get("running") is False and
                     scan.get("phase") not in {"starting", "inventory", "pruning", "cancel_pending", "cancelling", "cleanup", "blocked"},
                     "Scan busy/uncertain")
-            require(type(schedule) is dict and schedule.get("capability") is False and schedule.get("active") is False
-                    and schedule.get("blocked") is False and type(schedule.get("state")) is dict
-                    and schedule["state"].get("enabled") is False and schedule["state"].get("activeSlot") is None,
-                    "Scheduling not independently off/idle")
+            return {**observation, 'schedule': schedule_observation(schedule, observation['scheduleStorage'])}
         return observation
 
     @staticmethod

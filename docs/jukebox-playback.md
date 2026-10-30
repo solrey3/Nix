@@ -89,6 +89,45 @@ observations. Readiness checks require the expected server-reported zone mapping
 Navidrome off and unchanged permission/scheduling state. They are local config
 readiness, **not MPD connectivity/index coverage/audio or private HTTPS proof**.
 
+## Stable scheduler observation contract (Jukebox #125)
+
+The actual app's schedule response has a fresh `capturedAt` on every read. With
+an empty schedule table it also creates process-local `revision` and `last.at`
+values at startup. Hashing/comparing the whole DTO rejected safe repeated reads
+and restarts; constant-response fixtures had hidden that fail-closed mismatch.
+
+Native IO now reads scheduler **schema and bounded rows in the same read-only
+SQLite transaction as all logical dataset hashes**. A table count, API claim,
+cached default or missing table is not absence proof. Require the exact current
+`collector_schedule_v1` table SQL/columns/constraints, no unknown triggers, at
+most one KEXP row, bounded duplicate-free JSON, the physical root and strict
+current disabled-state shape. Missing/weakened/unknown schema, malformed/foreign
+rows, API/database disagreement, unavailable/blocked/busy/capability-enabled
+status or unknown DTO fields refuse. This witness is trusted internal IO output,
+not a new app API, caller plan field or self-asserted HTTP proof.
+
+The private stable projection validates and omits only retrieval `capturedAt`.
+For a proven empty table **and exact unconfigured API defaults**, it additionally
+omits only process-local `revision` and `last.at`, labels storage `empty`, and
+retains the other defaults explicitly. It never writes a fake empty definition
+or fabricates durable identity. For stored disabled rows, label storage `stored`
+and retain **every state field**, including revision, last time/outcome/slot/run,
+definition, rights, failures and watermark. They must match the actual stored row.
+Full raw table hashes/schema remain bound into private resources and the sealed
+backup, so row presence, byte-level storage or durable-field changes still
+invalidate review. Source/publisher/plan/boot/time/flag/worker/root gates are
+unchanged; previous plan pins are not reusable after this source change.
+
+Fixtures now use realistic changing retrieval times and empty-state startup IDs,
+exercise stored/history restart stability and genuine drift refusal before
+service actions or at post-start verification without retry/rollback. A separate
+cross-source check runs the **actual CollectorScheduler class** with owned
+synthetic SQLite databases, timers off and throwing collector/work callbacks;
+its empty/stored/history responses and schema satisfy this contract. No production
+scheduler, state, credential, API or service is used. These observations still do
+not create atomic admission against external clients: the approved coordinated
+operator window and full resource rechecks remain necessary.
+
 ## Native implementation and hard gates
 
 `scripts/jukebox_native.py` fixes bravo, account `budchris`, home, physical master
@@ -107,8 +146,9 @@ The native reader binds git commit/tree and clean app source, resolved profiles
 (including a standalone HM profile when present), unit/drop-in/base-file identity,
 manager executable/argv/start/invocation identity, known Node threads and allowed
 esbuild child ownership, and a descriptor to the expected database. It compares
-read-only logical SQLite schema/all tables, state/configuration hashes, M3Us,
-scan-error/activity metadata, and MPD/Navidrome unit identities. Unknown mutable
+read-only logical SQLite schema/all tables plus same-transaction scheduler storage
+evidence, state/configuration hashes, M3Us, scan-error/activity metadata, and
+MPD/Navidrome unit identities. Unknown mutable
 directories, private-file hardlinks, unsafe ancestry or unsupported process shapes
 fail closed; nothing is migrated, scanned into the app, deleted or force-killed.
 Playlist observation caps are 5,000 namespace entries and 128 MiB aggregate M3Us;

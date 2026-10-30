@@ -15,6 +15,7 @@ import jukebox_native as n
 import jukebox_window as w
 import jukebox_cli as cli
 from test_jukebox_playback import Fixture
+from schedule_fixtures import SCHEDULE_SQL, cold_state, status as schedule_status
 
 
 class NativeFixture:
@@ -36,10 +37,11 @@ class NativeFixture:
         self.scan={'running':False,'phase':'complete'}
         (self.paths['data']/'scan-state.json').write_text(json.dumps(self.scan));(self.paths['data']/'scan-state.json').chmod(0o600)
         (self.paths['app']/'.env').write_text('API_TOKEN=SYNTHETIC_SEALED_ONLY\n');(self.paths['app']/'.env').chmod(0o600)
-        db=sqlite3.connect(self.paths['data']/'jukebox.sqlite');db.executescript('CREATE TABLE tracks(id INTEGER PRIMARY KEY,title TEXT);INSERT INTO tracks VALUES(1,"fixture");');db.close()
+        db=sqlite3.connect(self.paths['data']/'jukebox.sqlite');db.executescript('CREATE TABLE tracks(id INTEGER PRIMARY KEY,title TEXT);INSERT INTO tracks VALUES(1,"fixture");' + SCHEDULE_SQL + ';');db.close()
         ep=self.paths['app']/'node_modules/esbuild/package.json';ep.parent.mkdir(parents=True);ep.write_text('{"version":"0.25"}')
         binary=self.paths['app']/'node_modules/@esbuild/linux-x64/bin/esbuild';binary.parent.mkdir(parents=True);binary.write_text('fixture, never executed')
         self.pid=100;self.active=True;self.loaded=False;self.calls=[];self.roots={};self.stop_policy='no'
+        self.captured_at=1000000;self.cold_schedule=cold_state(self.captured_at);self.on_start=None
         self.node=f.store/'node-fixture';self.node.write_text('fixture, never executed')
         self.create_proc()
         owner=self
@@ -90,7 +92,10 @@ class NativeFixture:
         if 'stop' in args:
             shutil.rmtree(self.paths['proc']/str(self.pid));self.active=False
             (self.paths['cgroup']/'user.slice'/n.UNIT/'cgroup.procs').write_text('')
-        elif 'start' in args:self.pid+=1;self.active=True;self.create_proc()
+        elif 'start' in args:
+            self.pid+=1;self.active=True;self.create_proc();self.captured_at+=100
+            self.cold_schedule=cold_state(self.captured_at)
+            if self.on_start:self.on_start()
         elif 'daemon-reload' in args:self.loaded=(self.f.home/p.TARGETS['90-playback.conf']).is_symlink()
         return ''
 
@@ -100,7 +105,14 @@ class NativeFixture:
     def api(self,endpoint):
         p.require(endpoint in w.ENDPOINTS,'Unexpected fixture endpoint')
         if endpoint=='scan':return copy.deepcopy(self.scan)
-        if endpoint=='operations/schedule':return {'capability':False,'active':False,'blocked':False,'state':{'enabled':False,'activeSlot':None}}
+        if endpoint=='operations/schedule':
+            self.captured_at+=1
+            db=sqlite3.connect(self.paths['data']/'jukebox.sqlite')
+            try:row=db.execute('SELECT json FROM collector_schedule_v1').fetchone()
+            finally:db.close()
+            state=json.loads(row[0]) if row else copy.deepcopy(self.cold_schedule)
+            state.pop('root',None)
+            return schedule_status(state,self.captured_at)
         if endpoint=='discovery':return []
         if endpoint=='discovery/runs':return {'rows':[]}
         zones={}
@@ -125,7 +137,8 @@ class NativeFixture:
         return target
 
     def make_adapter(self,artifact):
-        observed=self.io.observe();prototype=object.__new__(w.WindowAdapter);context=prototype._context(observed)
+        prototype=object.__new__(w.WindowAdapter);prototype.io=self.io
+        observed=prototype._observe();context=prototype._context(observed)
         boot,mono,utc=self.io.clock()
         plan={'schema':1,'id':'a'*32,'publisher':'b'*64,'artifact':artifact.record() if artifact else None,'window':w.WINDOW,
           'failurePolicy':w.POLICY,'allowPreparation':True,'allowManagerStopStart':True,'allowUserDaemonReload':True,

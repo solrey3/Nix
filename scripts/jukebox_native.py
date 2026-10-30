@@ -175,6 +175,7 @@ class NativeIO:
     def __init__(self, paths, runner, api, *, now=time.time, sleep=time.sleep):
         self.p, self.runner, self.api, self.now, self.sleep = paths, runner, api, now, sleep
         self.offline = None
+        self.schedule_storage = None
         self.baseline_config = None
         self.backup_receipts = {}
         self.manager_group = None
@@ -237,7 +238,8 @@ class NativeIO:
             data = safe_file(playlist_dir / name, 64 * 1024 * 1024); total += len(data)
             require(total <= 128 * 1024 * 1024, 'Playlist bytes exceed reviewed observation budget')
             playlists.update(data); count += 1
-        return {'database': database_digest(db), 'state': state, 'telemetry': telemetry,
+        logical, self.schedule_storage = database_digest(db, scheduler_root=self.p['root'])
+        return {'database': logical, 'state': state, 'telemetry': telemetry,
                 'environment': digest(env), 'playlists': {'count': count, 'hash': playlists.hexdigest()}}
 
     def _process(self, unit):
@@ -317,7 +319,7 @@ class NativeIO:
             group_file = self.p['cgroup'] / self.manager_group.lstrip('/') / 'cgroup.procs'
             require(not group_file.exists() or not group_file.read_text().strip(), "Owned cgroup still populated")
             return {**immutable, 'invocation': digest(b'stopped'), 'processClosed': True, 'jobsIdle': False,
-                    'config': None, 'scan': None, 'schedule': None, 'zonesOwned': False}
+                    'config': None, 'scan': None, 'schedule': None, 'scheduleStorage': self.schedule_storage, 'zonesOwned': False}
         group = unit['ControlGroup']
         require(group.startswith('/') and group.endswith('/' + UNIT) and '..' not in group.split('/'),
                 "Manager cgroup identity unavailable")
@@ -340,7 +342,7 @@ class NativeIO:
         self.offline = dataset
         if self.baseline_config is None: self.baseline_config = config
         return {**immutable, 'invocation': invocation, 'processClosed': False, 'jobsIdle': jobs_idle,
-                'config': config, 'scan': scan, 'schedule': schedule, 'zonesOwned': zones_owned}
+                'config': config, 'scan': scan, 'schedule': schedule, 'scheduleStorage': self.schedule_storage, 'zonesOwned': zones_owned}
 
     def register_root(self, artifact, path):
         require(path.parent == self.p['home'] / STATE / 'roots' and path.name == artifact.hash, "Root destination not allowed")

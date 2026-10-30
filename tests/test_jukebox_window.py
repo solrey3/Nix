@@ -14,6 +14,7 @@ import jukebox_playback as p
 import jukebox_window as w
 import jukebox_native as n
 from test_jukebox_playback import Fixture
+from schedule_fixtures import cold_state, status as schedule_status
 
 
 class WindowIO:
@@ -26,6 +27,8 @@ class WindowIO:
         self.bad = None
         self.immutable = {k: p.digest(k.encode()) for k in ('profiles','tools','unit','stopPolicy','source','privateState')}
         self.invocation = p.digest(b'first')
+        self.capture = 1000000
+        self.schedule_state = cold_state(self.capture)
 
     def clock(self): return tuple(self.now)
     def observe(self, stopped=False):
@@ -39,8 +42,9 @@ class WindowIO:
                   'zones':zones,'navidrome':None,'scan':scan}
         result = {**self.immutable,'invocation':self.invocation,'processClosed':not self.active,
                   'jobsIdle':True,'config':config,'scan':scan,
-                  'schedule':{'capability':False,'active':False,'blocked':False,'state':{'enabled':False,'activeSlot':None}},
-                  'zonesOwned':True}
+                  'schedule':schedule_status(copy.deepcopy(self.schedule_state),self.capture),
+                  'scheduleStorage':{'kind':'empty'},'zonesOwned':True}
+        self.capture += 1
         if self.bad == 'busy': result['jobsIdle'] = False
         if self.bad == 'worker': result['processClosed'] = False
         if self.bad == 'schedule': result['schedule']['capability'] = True
@@ -56,16 +60,16 @@ class WindowIO:
     def command(self,argv):
         p.require(argv in p.COMMANDS.values(),'Unsupported action');self.calls.append(argv)
         if argv==p.COMMANDS['stop']: self.active=False
-        if argv==p.COMMANDS['start']: self.active=True;self.invocation=p.digest(self.invocation.encode())
+        if argv==p.COMMANDS['start']:
+            self.active=True;self.invocation=p.digest(self.invocation.encode())
+            self.schedule_state=cold_state(self.capture)
     def wait_config(self): self.calls.append('read-only-config')
     def drain(self): pass
 
 
 def adapter(f,io,artifact):
-    observed=io.observe()
-    context={'eligible':True,**{k:observed[k] for k in ('profiles','tools','unit','stopPolicy','source','invocation')},
-      'flags':p.digest(p.canonical({'config':w.WindowAdapter._stable_config(observed['config']),'schedule':observed['schedule']})),
-      'resources':p.digest(p.canonical({'state':observed['privateState'],'scan':observed['scan']}))}
+    prototype=object.__new__(w.WindowAdapter);prototype.io=io
+    observed=prototype._observe();context=prototype._context(observed)
     plan={'schema':1,'id':'a'*32,'publisher':'b'*64,'artifact':artifact.record() if artifact else None,
           'window':w.WINDOW,'failurePolicy':w.POLICY,'allowPreparation':True,'allowManagerStopStart':True,
           'allowUserDaemonReload':True,'bootId':'boot','createdMonotonic':100,'createdUtc':1000,
