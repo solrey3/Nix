@@ -63,7 +63,7 @@ external atomic maintenance fence. Polling cannot close that race.
 `scripts/jukebox_window.py` requires a strict independently hash-pinned private
 activation plan. Schema 1 includes:
 
-- `id`, `publisher` (combined four-script identity), exact `artifact` record or
+- `id`, `publisher` (combined five-script identity, including `jukebox_backup.py`), exact `artifact` record or
   null for rollback to absence, and `backup` containing an exact receipt ID/hash;
 - literal `window=operator-coordinated-no-concurrent-clients-or-external-edits-v1` and
   `failurePolicy=manual-block-no-retry-resume-rollback-or-containment-stop-v1`;
@@ -91,8 +91,15 @@ readiness, **not MPD connectivity/index coverage/audio or private HTTPS proof**.
 
 ## Native implementation and hard gates
 
-`scripts/jukebox_native.py` fixes bravo, account `budchris`, master/app/home paths,
-selected system/user profiles and existing manager unit. There is no arbitrary
+`scripts/jukebox_native.py` fixes bravo, account `budchris`, home, physical master
+`/mnt/files2/Jukebox`, and the separated project `/home/budchris/Projects/Jukebox`
+from Jukebox #123. App/data and Telemetry/JukeboxApp are under that project,
+not the media root. Git source identity uses the project; master M3Us use the
+physical root, never the project's navigation symlinks. Storage paths join the
+source digest and require new independently pinned observations/receipts/plans
+following relocation. Unit WorkingDirectory and actual process cwd must match
+that App directory. Selected system/user profiles and the existing manager unit
+remain fixed. There is no arbitrary
 home/store/host/command override, plugin loader or live-test environment switch.
 Internal dependency injection is trusted test code, not a user artifact hook.
 
@@ -140,8 +147,8 @@ together before any use. A future separately approved operation must create a
 coherent sealed backup and independently pin its receipt. The
 native verifier does not search/choose a convenient backup or trust reported
 hashes alone. Fixed destination:
-`App/data/deployment-backups/publisher-reviewed-<32-hex-id>/`, private owner-only
-directory, with private `receipt.json` and `jukebox.sqlite`, `configuration.env`,
+`/home/budchris/Projects/Jukebox/App/data/deployment-backups/publisher-reviewed-<32-hex-id>/`,
+private owner-only directory, with private `receipt.json` and `jukebox.sqlite`, `configuration.env`,
 `app-files/` copies, and `telemetry-metadata/` copies.
 
 Receipt schema is exactly `{schema: 1, dataset: ...}`; the dataset must equal the
@@ -154,6 +161,33 @@ uncertainty markers `.receipt-export-intent.json` and `.receipt-pending` refuse;
 retained `export.json`, when present, must bind that exact receipt/dataset. The
 exporter refuses existing output rather than resuming; a failed export needs
 separate inspection, never deletion/retry to appear complete.
+
+`scripts/jukebox_backup.py` checks the **exact** bounded bundle namespace before
+any SQLite open, including a second check after receipt reads. Unknown root or
+nested files/directories, WAL/SHM/journal sidecars (even empty), missing copies,
+uncertainty markers, symlinks/FIFOs/hardlinks and unsafe ownership/modes refuse.
+Only the two recognized metadata directory trees, exact dataset-named files,
+receipt and optional completion proof are allowed; empty recognized directories
+are permitted, not arbitrary extra directories. No rejected evidence is removed.
+
+All ancestry/child opens are directory-descriptor relative and no-follow. File
+and directory device/inode/mode/owner/link/size/mtime/ctime snapshots are compared
+around reads and again at successful verification exit, including the named root.
+The offline reader opens only its checked descriptor via `/proc/self/fd` with
+`mode=ro&immutable=1`, an 8 GiB file bound and 60-second SQLite progress/row deadline.
+Other copied metadata is bounded to 512 MiB aggregate / 30,000 namespace nodes,
+with individual file limits. It does not consume/create SQLite sidecars, checkpoint,
+copy, flush or rewrite evidence. Live WAL observation keeps its existing `mode=ro`
+transport; only logical row encoding is shared. Fixture coverage distinguishes
+committed live WAL reads from refused sealed WAL copies. Rechecks reduce stale
+inputs but do not make external edits globally atomic or replace the coordinated
+operator window.
+
+The fifth implementation file changes the publisher identity; old four-script
+plans cannot be reused. The migration's historical backup aliases remain the
+app's Recovery concern, not a publisher backup search, evidence rewrite or grant
+to inspect/reuse historical backups. Actual fresh backup preparation still needs
+separate approval.
 
 The failure policy is **manual blocking only**: no automatic retry, resume,
 repair, rollback, containment stop or helper killing. A failure can leave the

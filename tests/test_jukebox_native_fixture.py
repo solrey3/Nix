@@ -20,11 +20,14 @@ from test_jukebox_playback import Fixture
 class NativeFixture:
     def __init__(self):
         self.f=Fixture();f=self.f
-        self.paths={'home':f.home,'root':f.root/'master','app':f.root/'master/App','data':f.root/'master/App/data',
-          'telemetry':f.root/'master/Telemetry/JukeboxApp','system':f.root/'selected-system','hm':f.root/'selected-home',
+        self.paths={'home':f.home,'root':f.root/'master','project':f.root/'project',
+          'app':f.root/'project/App','data':f.root/'project/App/data',
+          'telemetry':f.root/'project/Telemetry/JukeboxApp','system':f.root/'selected-system','hm':f.root/'selected-home',
           'proc':f.root/'proc','store':f.store,'cgroup':f.root/'cgroup','uid':os.getuid()}
         for key in ('data','telemetry','proc','cgroup') :self.paths[key].mkdir(parents=True,mode=0o700)
-        (self.paths['root']/'Playlists').mkdir()
+        for name in ('Music','Playlists','Staging'):
+            (self.paths['root']/name).mkdir(parents=True)
+            (self.paths['project']/name).symlink_to(self.paths['root']/name)
         (self.paths['root']/'Playlists/Fixture.m3u').write_text('#EXTM3U\n')
         for key in ('system','hm'):
             target=f.store/(key+'-profile');target.mkdir();self.paths[key].symlink_to(target)
@@ -58,6 +61,7 @@ class NativeFixture:
         (proc/'stat').write_text(str(self.pid)+' (node) '+' '.join(fields))
         (proc/'cmdline').write_bytes(b'node\0--import\0tsx\0server/index.ts\0')
         (proc/'exe').symlink_to(self.node)
+        (proc/'cwd').symlink_to(self.paths['app'])
         (proc/'fd').mkdir();(proc/'fd/7').symlink_to(self.paths['data']/'jukebox.sqlite')
         group=self.paths['cgroup']/'user.slice'/n.UNIT;group.mkdir(parents=True,exist_ok=True);(group/'cgroup.procs').write_text(str(self.pid))
 
@@ -65,7 +69,8 @@ class NativeFixture:
         v={key:'' for key in n.PROPS}
         v.update(MainPID=str(self.pid) if self.active else '0',InvocationID='fixture-'+str(self.pid),ActiveState='active' if self.active else 'inactive',
                  SubState='running' if self.active else 'dead',FragmentPath=str(self.fragment),KillMode='control-group',
-                 SendSIGKILL=self.stop_policy,TimeoutStopUSec='30s',Result='success',ControlGroup='/user.slice/'+n.UNIT)
+                 SendSIGKILL=self.stop_policy,TimeoutStopUSec='30s',Result='success',ControlGroup='/user.slice/'+n.UNIT,
+                 WorkingDirectory=str(self.paths['app']))
         if name!=n.UNIT:v.update(MainPID='200' if name=='mpd.service' else '300',InvocationID=name,FragmentPath='/fixture/'+name,ActiveState='active',SubState='running')
         elif self.loaded:v['DropInPaths']=str(self.f.home/p.TARGETS['90-playback.conf'])
         return v
@@ -113,6 +118,9 @@ class NativeFixture:
         for name in data['state']:
             shutil.copyfile(self.paths['data']/name,target/'app-files'/name);(target/'app-files'/name).chmod(0o600)
         (target/'telemetry-metadata').mkdir(mode=0o700)
+        for name in data['telemetry']:
+            copied=target/'telemetry-metadata'/name;copied.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+            shutil.copyfile(self.paths['telemetry']/name,copied);copied.chmod(0o600)
         receipt={'schema':1,'dataset':data};(target/'receipt.json').write_bytes(p.canonical(receipt));(target/'receipt.json').chmod(0o600)
         return target
 
@@ -135,6 +143,8 @@ class NativeFixtureTests(unittest.TestCase):
     def test_all_native_readers_backup_stop_closure_and_ready_with_fake_commands(self):
         x=NativeFixture()
         try:
+            (x.paths['telemetry']/'transactions').mkdir(mode=0o700)
+            (x.paths['telemetry']/'transactions/fixture.json').write_text('{"status":"complete"}')
             x.seal_backup();a=x.make_adapter(x.f.a);x.f.publisher.adapter=a
             r=x.f.publisher.review(x.f.a,approve=True);x.f.publisher.apply(r['id'],approve=True)
             self.assertEqual(x.f.publisher.inspect()['state'],'owned')
@@ -212,6 +222,44 @@ class NativeFixtureTests(unittest.TestCase):
             proof['datasetHash']='0'*64;(target/'export.json').write_bytes(p.canonical(proof))
             with self.assertRaises(p.Refusal):a.backup(context)
         finally:x.close()
+
+    def test_fixed_and_observed_storage_separate_project_from_physical_media(self):
+        account=SimpleNamespace(pw_uid=1234,pw_dir='/home/budchris')
+        with patch.object(n.pwd,'getpwnam',return_value=account),patch.object(n.os,'geteuid',return_value=1234), \
+             patch.object(n.socket,'gethostname',return_value='bravo'):
+            paths=n.fixed_paths()
+        self.assertEqual(paths['root'],Path('/mnt/files2/Jukebox'))
+        self.assertEqual(paths['project'],Path('/home/budchris/Projects/Jukebox'))
+        self.assertEqual(paths['app'],paths['project']/'App')
+        self.assertEqual(paths['data'],paths['app']/'data')
+        self.assertEqual(paths['telemetry'],paths['project']/'Telemetry/JukeboxApp')
+        x=NativeFixture()
+        try:
+            x.io.observe()
+            git=[args for tool,args in x.calls if tool=='git']
+            self.assertTrue(git)
+            self.assertTrue(all(args[args.index('-C')+1]==str(x.paths['project']) for args in git))
+            old=x.unit
+            x.unit=lambda name:{**old(name),'WorkingDirectory':str(x.paths['root']/'App')}
+            with self.assertRaises(p.Refusal):x.io.observe()
+            x.unit=old
+            cwd=x.paths['proc']/str(x.pid)/'cwd';cwd.unlink();cwd.symlink_to(x.paths['root']/'Music')
+            with self.assertRaises(p.Refusal):x.io.observe()
+        finally:x.close()
+
+    def test_sealed_namespace_is_checked_before_any_sqlite_open(self):
+        for relative in ('foreign.json', 'app-files/foreign.json', 'telemetry-metadata/foreign.json',
+                         'jukebox.sqlite-wal', 'jukebox.sqlite-shm', 'jukebox.sqlite-journal'):
+            with self.subTest(relative=relative):
+                x=NativeFixture()
+                try:
+                    target=x.seal_backup();a=x.make_adapter(x.f.a);context=a.snapshot()
+                    foreign=target/relative;foreign.write_bytes(b'');foreign.chmod(0o600)
+                    with patch.object(w.sqlite3,'connect',side_effect=AssertionError('SQLite must not open')):
+                        with self.assertRaises(p.Refusal):a.backup(context)
+                    self.assertTrue(foreign.exists(), 'No cleanup of rejected evidence')
+                    self.assertFalse(any(name=='systemctl' and 'show' not in args for name,args in x.calls))
+                finally:x.close()
 
     def test_actual_owned_pid_or_cgroup_not_closed_blocks_after_stop(self):
         x=NativeFixture()

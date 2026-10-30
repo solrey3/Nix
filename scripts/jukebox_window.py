@@ -52,31 +52,39 @@ def database_digest(path):
     s = path.lstat()
     require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, "Unsafe database")
     db = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=1)
-    db.row_factory = sqlite3.Row
     try:
-        db.execute("BEGIN")
-        require([row[0] for row in db.execute("PRAGMA integrity_check")] == ["ok"], "Database integrity unavailable")
-        schema = [dict(row) for row in db.execute("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name")]
-        tables = {}
-        for item in schema:
-            if item["type"] != "table": continue
-            name = item["name"]
-            quoted = '"' + name.replace('"', '""') + '"'
-            columns = list(db.execute("PRAGMA table_info(" + quoted + ")"))
-            primary = ','.join('"' + r['name'].replace('"', '""') + '"' for r in sorted(columns, key=lambda r: r['pk']) if r['pk'])
-            try: cursor = db.execute("SELECT * FROM " + quoted + " ORDER BY rowid")
-            except sqlite3.OperationalError:
-                require(bool(primary), "Unordered table unsupported")
-                cursor = db.execute("SELECT * FROM " + quoted + " ORDER BY " + primary)
-            import hashlib
-            sha = hashlib.sha256(); count = 0
-            for row in cursor:
-                # Canonical JSON deliberately refuses BLOB/nonfinite/unsupported values.
-                sha.update(canonical(dict(row))); sha.update(b"\n"); count += 1
-            tables[name] = {"count": count, "hash": sha.hexdigest()}
-        return {"schema": digest(canonical(schema)), "tables": tables}
+        return database_contents(db)
     finally:
         db.close()
+
+
+def database_contents(db, check=lambda: None):
+    """Shared logical encoding only; callers own live versus offline transport."""
+    db.row_factory = sqlite3.Row
+    db.execute("BEGIN")
+    require([row[0] for row in db.execute("PRAGMA integrity_check")] == ["ok"], "Database integrity unavailable")
+    schema = [dict(row) for row in db.execute("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name")]
+    tables = {}
+    for item in schema:
+        check()
+        if item["type"] != "table": continue
+        name = item["name"]
+        quoted = '"' + name.replace('"', '""') + '"'
+        columns = list(db.execute("PRAGMA table_info(" + quoted + ")"))
+        primary = ','.join('"' + r['name'].replace('"', '""') + '"' for r in sorted(columns, key=lambda r: r['pk']) if r['pk'])
+        try: cursor = db.execute("SELECT * FROM " + quoted + " ORDER BY rowid")
+        except sqlite3.OperationalError:
+            require(bool(primary), "Unordered table unsupported")
+            cursor = db.execute("SELECT * FROM " + quoted + " ORDER BY " + primary)
+        import hashlib
+        sha = hashlib.sha256(); count = 0
+        for row in cursor:
+            check()
+            # Canonical JSON deliberately refuses BLOB/nonfinite/unsupported values.
+            sha.update(canonical(dict(row))); sha.update(b"\n"); count += 1
+        tables[name] = {"count": count, "hash": sha.hexdigest()}
+    check()
+    return {"schema": digest(canonical(schema)), "tables": tables}
 
 
 class WindowAdapter:

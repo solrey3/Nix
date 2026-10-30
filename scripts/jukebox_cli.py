@@ -17,7 +17,7 @@ from jukebox_native import NativeIO, OwnedRunner, LocalAPI, fixed_paths, safe_fi
 def code_identity():
     folder = Path(__file__).parent
     return digest(canonical({name: digest((folder/name).read_bytes()) for name in
-                             ('jukebox_playback.py','jukebox_window.py','jukebox_native.py','jukebox_cli.py')}))
+                             ('jukebox_playback.py','jukebox_window.py','jukebox_native.py','jukebox_backup.py','jukebox_cli.py')}))
 
 
 def token_from_fd(fd):

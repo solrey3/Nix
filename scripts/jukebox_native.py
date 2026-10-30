@@ -20,10 +20,11 @@ import urllib.error
 
 from jukebox_playback import COMMANDS, HEX, ID, REV, STATE, Refusal, canonical, digest, object_json, require
 from jukebox_window import ENDPOINTS, database_digest
+from jukebox_backup import SealedBundle
 
 UNIT = "jukebox-manager.service"
 PROPS = ("MainPID", "InvocationID", "ActiveState", "SubState", "FragmentPath", "DropInPaths",
-         "KillMode", "SendSIGKILL", "TimeoutStopUSec", "Result", "ControlGroup")
+         "KillMode", "SendSIGKILL", "TimeoutStopUSec", "Result", "ControlGroup", "WorkingDirectory")
 
 
 class OwnedRunner:
@@ -118,8 +119,10 @@ def fixed_paths():
     require(os.geteuid() == account.pw_uid and os.geteuid() != 0 and
             socket.gethostname().split('.')[0] == 'bravo' and account.pw_dir == '/home/budchris',
             "Wrong account/host/home; no override")
-    home = Path(account.pw_dir); root = Path('/mnt/files2/Jukebox'); app = root / 'App'
-    return {'home': home, 'root': root, 'app': app, 'data': app / 'data', 'telemetry': root / 'Telemetry/JukeboxApp',
+    home = Path(account.pw_dir); root = Path('/mnt/files2/Jukebox')
+    project = home / 'Projects/Jukebox'; app = project / 'App'
+    return {'home': home, 'root': root, 'project': project, 'app': app, 'data': app / 'data',
+            'telemetry': project / 'Telemetry/JukeboxApp',
             'system': Path('/run/current-system'), 'hm': Path('/etc/profiles/per-user/budchris'),
             'proc': Path('/proc'), 'store': Path('/nix/store'), 'cgroup': Path('/sys/fs/cgroup'), 'uid': account.pw_uid}
 
@@ -240,6 +243,7 @@ class NativeIO:
     def _process(self, unit):
         pid = unit['MainPID']; require(pid.isdigit() and int(pid) > 1 and unit['ActiveState'] == 'active' and unit['Result'] == 'success', "Manager not active/settled")
         proc = self.p['proc'] / pid
+        require((proc / 'cwd').resolve(strict=True) == self.p['app'], 'Manager cwd is not the reviewed project app')
         threads = []
         for entry in (proc / 'task').iterdir():
             require(len(threads) < 128, "Thread inventory bound")
@@ -278,9 +282,10 @@ class NativeIO:
         require(set(unit['DropInPaths'].split()) <= {own}, "Other drop-ins require separate review")
         # Refuse any policy that can escalate a stuck stop; never alter it here.
         require(unit['SendSIGKILL'] == 'no' and unit['KillMode'] == 'control-group', "Stop escalation policy requires separate approval/configuration")
+        require(unit['WorkingDirectory'] == str(self.p['app']), 'Manager WorkingDirectory differs from reviewed project')
         base = safe_file(unit['FragmentPath'], uid=self.p['uid'])
         git_prefix = ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false',
-                      '-c', 'core.hooksPath=/dev/null', '-C', str(self.p['root'])]
+                      '-c', 'core.hooksPath=/dev/null', '-C', str(self.p['project'])]
         source = self.runner.run('git', [*git_prefix, 'rev-parse', 'HEAD', 'HEAD^{tree}'])
         require(all(REV.fullmatch(x) for x in source.splitlines()) and len(source.splitlines()) == 2, "Source identity unavailable")
         require(not self.runner.run('git', [*git_prefix, 'status', '--porcelain', '--untracked-files=normal', '--ignore-submodules=all']), "App source dirty")
@@ -294,7 +299,8 @@ class NativeIO:
         dataset = self._dataset()
         invocation = None if stopped else self._process(unit)
         require(self.manager_runtime is not None, 'Prior manager runtime identity unavailable')
-        immutable = {'profiles': digest(canonical(profiles)), 'source': digest(source.encode()),
+        storage = {key: str(self.p[key]) for key in ('root', 'project', 'app', 'data', 'telemetry')}
+        immutable = {'profiles': digest(canonical(profiles)), 'source': digest(canonical({'git': source, 'storage': storage})),
                      'unit': digest(base), 'stopPolicy': digest(canonical({k: unit[k] for k in ('KillMode', 'SendSIGKILL', 'TimeoutStopUSec')})),
                      'tools': digest(canonical({'tools': self.runner.tools, 'python': str(Path(sys.executable).resolve()),
                                                'manager': self.manager_runtime})),
@@ -396,34 +402,25 @@ class NativeIO:
         require(type(reference) is dict and set(reference) == {'id', 'hash'} and ID.fullmatch(reference['id'])
                 and HEX.fullmatch(reference['hash']) and self.offline is not None, "Backup reference invalid")
         directory = self.p['data'] / 'deployment-backups' / ('publisher-reviewed-' + reference['id'])
-        for name in ('.receipt-export-intent.json', '.receipt-pending'):
-            pending = directory / name
-            require(not pending.exists() and not pending.is_symlink(), 'Uncertain receipt export; no automatic recovery')
-        ds = directory.lstat()
-        require(stat.S_ISDIR(ds.st_mode) and ds.st_uid == self.p['uid'] and not ds.st_mode & 0o077,
-                'Backup directory must be private and direct')
-        bs = (directory / 'jukebox.sqlite').lstat()
-        require(stat.S_ISREG(bs.st_mode) and bs.st_uid == self.p['uid'] and not bs.st_mode & 0o077,
-                'Database backup must be private')
-        raw = safe_file(directory / 'receipt.json', 2 * 1024 * 1024, self.p['uid'], True)
-        require(digest(raw) == reference['hash'], "Backup receipt changed")
-        receipt = object_json(raw, 2 * 1024 * 1024)
-        require(set(receipt) == {'schema', 'dataset'} and type(receipt['schema']) is int
-                and receipt['schema'] == 1 and receipt['dataset'] == self.offline, "Stale/unknown backup receipt")
-        exported = directory / 'export.json'
-        if exported.exists() or exported.is_symlink():
-            proof = object_json(safe_file(exported, 65536, self.p['uid'], True))
-            require(proof == {'schema': 1, 'receipt': reference, 'datasetHash': digest(canonical(self.offline))},
-                    'Deployment receipt export proof differs')
-        require(database_digest(directory / 'jukebox.sqlite') == self.offline['database'], "Backup SQLite mismatch")
-        require(digest(safe_file(directory / 'configuration.env', uid=self.p['uid'], private=True)) == self.offline['environment'],
-                "Private configuration backup mismatch")
-        for name, meta in self.offline['state'].items():
-            require(digest(safe_file(directory / 'app-files' / name, uid=self.p['uid'], private=True)) == meta['hash'], "App backup mismatch")
-        for name, sha in self.offline['telemetry'].items():
-            require(digest(safe_file(directory / 'telemetry-metadata' / name, 8 * 1024 * 1024, self.p['uid'], True)) == sha,
-                    "Telemetry backup mismatch")
-        require(digest(canonical({'dataset': self.offline, 'peers': {name: self._unit(name, False) for name in ('mpd.service', 'navidrome.service')}}))
-                == before['privateState'], "Backup/resource binding differs")
+        with SealedBundle(directory, self.offline, self.p['uid']) as bundle:
+            raw = bundle.read('receipt.json')
+            require(digest(raw) == reference['hash'], "Backup receipt changed")
+            receipt = object_json(raw, 2 * 1024 * 1024)
+            require(set(receipt) == {'schema', 'dataset'} and type(receipt['schema']) is int
+                    and receipt['schema'] == 1 and receipt['dataset'] == self.offline, "Stale/unknown backup receipt")
+            if 'export.json' in bundle.snapshot:
+                proof = object_json(bundle.read('export.json'))
+                require(type(proof.get('schema')) is int and
+                        proof == {'schema': 1, 'receipt': reference, 'datasetHash': digest(canonical(self.offline))},
+                        'Deployment receipt export proof differs')
+            require(bundle.database() == self.offline['database'], "Backup SQLite mismatch")
+            require(digest(bundle.read('configuration.env')) == self.offline['environment'], "Private configuration backup mismatch")
+            for name, meta in self.offline['state'].items():
+                copied = bundle.read('app-files/' + name)
+                require(len(copied) == meta['size'] and digest(copied) == meta['hash'], "App backup mismatch")
+            for name, sha in self.offline['telemetry'].items():
+                require(digest(bundle.read('telemetry-metadata/' + name)) == sha, "Telemetry backup mismatch")
+            require(digest(canonical({'dataset': self.offline, 'peers': {name: self._unit(name, False) for name in ('mpd.service', 'navidrome.service')}}))
+                    == before['privateState'], "Backup/resource binding differs")
 
     def drain(self): self.runner.drain()
