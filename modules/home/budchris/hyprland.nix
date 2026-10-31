@@ -4,6 +4,41 @@ let
   enabled = osConfig != null && (osConfig.custom.desktop.environments.hyprland or false);
   policy = config.custom.desktopPolicy;
   isQuebec = osConfig != null && osConfig.networking.hostName == "quebec";
+  isOscar = osConfig != null && osConfig.networking.hostName == "oscar";
+  # Oscar's dock can report outputs as enabled after resume while leaving
+  # them black. A DPMS cycle wakes the panel; a mode change retrains the LG.
+  oscarDisplayResume = pkgs.writeShellApplication {
+    name = "oscar-display-resume";
+    runtimeInputs = with pkgs; [ coreutils hyprland jq util-linux ];
+    text = ''
+      exec 9>"$XDG_RUNTIME_DIR/oscar-display-resume.lock"
+      flock -n 9 || exit 0
+      hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
+      sleep 2
+      panel=$(hyprctl monitors all -j | jq -r 'any(.[]; .name == "eDP-1" and .disabled == false)')
+      lidClosed=false
+      for lid in /proc/acpi/button/lid/*/state; do
+        if [ -r "$lid" ] && [[ $(< "$lid") == *closed* ]]; then
+          lidClosed=true
+        fi
+      done
+      if [ "$panel" = true ] && [ "$lidClosed" = false ]; then
+        hyprctl eval 'hl.dispatch(hl.dsp.dpms("off", "eDP-1"))'
+        sleep 1
+        hyprctl eval 'hl.dispatch(hl.dsp.dpms("on", "eDP-1"))'
+      fi
+      output=$(hyprctl monitors -j | jq -r '
+        .[] | select(.description == "LG Electronics LG ULTRAWIDE 0x000759BE") | .name
+      ')
+      if [ -n "$output" ]; then
+        # Quote the detected connector as a Lua string, not executable code.
+        output=$(printf '%s' "$output" | jq -Rs .)
+        hyprctl eval "hl.monitor({output=$output, mode=\"1920x1080@60\", position=\"1920x0\", scale=1, disabled=false})"
+        sleep 3
+        hyprctl eval "hl.monitor({output=$output, mode=\"2560x1080@60\", position=\"1920x0\", scale=1, disabled=false})"
+      fi
+    '';
+  };
   nvidia = osConfig != null && lib.elem "nvidia" (osConfig.services.xserver.videoDrivers or [ ]);
   # hyprpaper and hyprlock reliably decode raster images; retain the SVG source
   # alongside this rendered Quebec Wall-11-inspired wallpaper.
@@ -321,7 +356,7 @@ in
         general {
           lock_cmd = ${pkgs.procps}/bin/pidof hyprlock || ${pkgs.hyprlock}/bin/hyprlock
           before_sleep_cmd = ${pkgs.systemd}/bin/loginctl lock-session
-          after_sleep_cmd = ${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
+          after_sleep_cmd = ${if isOscar then lib.getExe oscarDisplayResume else "${pkgs.hyprland}/bin/hyprctl dispatch 'hl.dsp.dpms({ action = \"on\" })'"}
         }
         listener {
           timeout = 600
