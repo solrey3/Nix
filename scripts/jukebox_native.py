@@ -39,7 +39,10 @@ class OwnedRunner:
         env = {'PATH': '/run/current-system/sw/bin', 'HOME': self.home, 'USER': 'budchris',
                'LANG': 'C.UTF-8', 'XDG_RUNTIME_DIR': f'/run/user/{self.uid}',
                'DBUS_SESSION_BUS_ADDRESS': f'unix:path=/run/user/{self.uid}/bus', 'NIX_REMOTE': 'daemon'}
-        proc = subprocess.Popen([self.tools[name], *args], stdin=subprocess.DEVNULL,
+        # Pin the resolved executable, but preserve its approved multicall name.
+        # Nix's nix-store symlink resolves to nix; argv[0]=.../nix selects the
+        # wrong CLI even though the same trusted executable is launched.
+        proc = subprocess.Popen([name, *args], executable=self.tools[name], stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
         os.set_blocking(proc.stdout.fileno(), False)
         self.pending.append(proc)
@@ -416,7 +419,23 @@ class NativeIO:
         unit = self._unit(UNIT, True)
         require(unit['FragmentPath'] == str(self.p['home'] / '.config/systemd/user/jukebox-manager.service'), "Unexpected base unit owner")
         own = str(self.p['home'] / '.config/systemd/user/jukebox-manager.service.d/90-playback.conf')
-        require(set(unit['DropInPaths'].split()) <= {own}, "Other drop-ins require separate review")
+        safety = self.p['home'] / '.config/systemd/user/jukebox-manager.service.d/80-stop-safety.conf'
+        dropins = unit['DropInPaths'].split()
+        require(len(dropins) == len(set(dropins)) and set(dropins) <= {own, str(safety)},
+                "Other/duplicate drop-ins require separate review")
+        safety_evidence = None
+        if str(safety) in dropins:
+            before = safety.lstat()
+            contents = safe_file(safety, 1024, self.p['uid'], private=True)
+            after = safety.lstat()
+            def identity(info):
+                return [info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_nlink,
+                        info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+            require(identity(before) == identity(after) and contents == b'[Service]\nSendSIGKILL=no\n',
+                    'Stop-safety drop-in differs from approved canonical file')
+            safety_evidence = {'identity': identity(after), 'sha256': digest(contents)}
+        else:
+            require(not safety.exists() and not safety.is_symlink(), 'Unloaded stop-safety file requires review')
         # Refuse any policy that can escalate a stuck stop; never alter it here.
         require(unit['SendSIGKILL'] == 'no' and unit['KillMode'] == 'control-group', "Stop escalation policy requires separate approval/configuration")
         require(unit['WorkingDirectory'] == str(self.p['app']), 'Manager WorkingDirectory differs from reviewed project')
@@ -438,7 +457,8 @@ class NativeIO:
         require(self.manager_runtime is not None, 'Prior manager runtime identity unavailable')
         storage = {key: str(self.p[key]) for key in ('root', 'project', 'app', 'data', 'telemetry')}
         immutable = {'profiles': digest(canonical(profiles)), 'source': digest(canonical({'git': source, 'storage': storage})),
-                     'unit': digest(base), 'stopPolicy': digest(canonical({k: unit[k] for k in ('KillMode', 'SendSIGKILL', 'TimeoutStopUSec')})),
+                     'unit': digest(canonical({'base': digest(base), 'stopSafety': safety_evidence})),
+                     'stopPolicy': digest(canonical({k: unit[k] for k in ('KillMode', 'SendSIGKILL', 'TimeoutStopUSec')})),
                      'tools': digest(canonical({'tools': self.runner.tools, 'python': str(Path(sys.executable).resolve()),
                                                'manager': self.manager_runtime})),
                      'privateState': digest(canonical({'dataset': dataset, 'peers': peers}))}
@@ -471,7 +491,7 @@ class NativeIO:
         registry_path = self.p['home'] / STATE / 'registry.json'
         registry = object_json(safe_file(registry_path, 65536, self.p['uid'], True)) if registry_path.exists() else {'current': None, 'pending': None}
         if registry.get('current') is None and registry.get('pending') is None:
-            require(config.get('zones') == {} and not unit['DropInPaths'], "Initial publication requires original empty playback config")
+            require(config.get('zones') == {} and own not in dropins, "Initial publication requires original empty playback config")
         require(type(config.get('indexedCount')) is int and config['indexedCount'] >= 0
                 and 'tracks' in dataset['database']['tables']
                 and config['indexedCount'] == dataset['database']['tables']['tracks']['count'], "Index/database identity differs")
