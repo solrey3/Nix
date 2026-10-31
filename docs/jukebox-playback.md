@@ -196,7 +196,7 @@ The localhost API allowlist is only `config`, `scan`, `operations/schedule`,
 redirects are disabled. Size and total-read deadlines apply. Errors do not expose
 headers, credential values, responses or raw helper output.
 
-`scripts/jukebox_cli.py` gates native review/apply/rollback/discard modes behind
+`scripts/jukebox_cli.py` gates mutating native review/apply/rollback/discard modes behind
 `--approve`, an independently hash-pinned private plan and an explicit credential
 FD. The FD must be a bounded regular file or EOF-terminated pipe, contain one
 24–256 byte printable token with at most one final newline, and meet a five-second
@@ -204,6 +204,45 @@ read deadline. No credential comes from argv, environment, other services or
 parsing `.env`; `.env` is only privately hashed/backup-verified. Artifact inspection
 still cannot construct a home publisher, read credentials, spawn commands or
 contact an API. Ungated native modes refuse before home/host/token access.
+
+## Read-only retained-evidence inspection (Jukebox #127)
+
+`inspect` remains public artifact inspection: no home/credential/helper access.
+The distinct `inspect-state` source interface requires explicit **read-only**
+`--approve` and an independently supplied matching `--expected-publisher-sha256`
+before host/home/state access. It refuses manifest, activation-plan, review-ID
+and credential-FD arguments. The read-only pin is rejected by mutable modes;
+their private plan/credential/window gates are unchanged. Source publication
+is NOT approval to invoke either native interface against live state.
+
+The evidence inspector only reads the dedicated publisher namespace and lstat
+metadata for the two public targets. It opens an **existing** private lock
+read-only and takes a non-queuing shared lock, never creating state or a lock.
+Missing, busy, unsafe, unavailable, changed and unknown coverage is explicit;
+unknown inventory totals are null rather than invented zero. A one-shot report
+has bounded structural registry/review/transaction enums, derived inert reference
+hashes (not raw action IDs), link counts and observed pending-name counts. Limits:
+128 entries per directory, 64 KiB per committed record, 20 MiB total read budget,
+50 rows per namespace with explicit omissions/unknown-record coverage. Unknown
+names/values/payloads/errors/paths are not echoed. Known pending payloads are
+never read, interpreted or cleaned up.
+
+No artifact/root/public link target is followed and no source record can select
+a file outside this namespace. No adapter, command, API, process/profile/store
+query, credential, app configuration, library or backup read occurs. Every
+report, including `observed` or `absent`, has writes/actionable/activationAuthorized/
+recoveryAuthorized **false**. It is structural evidence only: ownership, root
+registration, artifact bytes, deep bindings/cross-record consistency, readiness
+and backup correctness are explicitly **not checked**. Metadata identity rechecks
+can mark a view changed; they are not an atomic/global-idle proof.
+
+The reporter can describe retained blocked/incomplete/transferred metadata where
+strict mutation admission refuses. It does **not** relax `_registry`, discard a
+consumed/blocked review, clear intent, adopt ownership or provide a recovery,
+rollback, retry/resume, purge or HM transfer controller. No report authorizes an
+action or should be fed into apply. Actual state inspection itself remains a
+separately approved production read with the exact source pin; it was exercised
+only against owned temporary homes in this source task.
 
 ## Backup contract and remaining live-workflow gaps
 

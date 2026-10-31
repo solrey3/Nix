@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Schema-1 playback artifact verifier and fail-closed publication state machine.
 
-Artifact inspection is read-only. Native operations are in separate modules and
-require an independently pinned private activation plan, credential FD, explicit
-operator-coordinated window and approval. Source publication is NOT activation
+Artifact inspection is public/read-only. Separate local evidence inspection needs
+explicit read-only approval and a pinned publisher identity, never native helpers.
+Mutating native operations require an independently pinned private activation
+plan, credential FD, explicit operator-coordinated window and approval. Source publication is NOT activation
 permission. No app admission lease, background action or automatic recovery.
 """
 from __future__ import annotations
@@ -186,7 +187,7 @@ class Home:
                 os.close(self.fd)
                 self.fd = nxt
                 s = os.fstat(nxt)
-                # /tmp is accepted only by fixture callers; live CLI never constructs Home.
+                # Sticky /tmp ancestry is fixture-only; gated production paths are fixed.
                 require(s.st_uid in (0, self.uid) and (not s.st_mode & 0o022 or
                         (s.st_uid == 0 and s.st_mode & stat.S_ISVTX)), "Untrusted home ancestry")
             s = os.fstat(self.fd)
@@ -722,6 +723,226 @@ class Publisher:
             self._write("registry.json", r)
 
 
+class EvidenceInspector:
+    """Inert structural evidence only; deliberately independent of adapters/Publisher.
+
+    No artifact/root/link target is followed. No metadata report can authorize a
+    mutation, prove ownership/readiness or unblock a retained transaction.
+    """
+    PHASES = TERMINAL | {'consumed', 'backup-requested', 'backup-verified', 'stop-requested',
+                        'service-stopped', 'links-intent', 'links-staged', 'remove-links-intent',
+                        'pointer-committed', 'reload-requested', 'start-requested', 'blocked', 'transfer-recorded'}
+    REVIEW = {'pending', 'consumed', 'discarded', 'blocked'}
+
+    def __init__(self, home):
+        self.fs = home
+        self.seen = {}
+        self.bytes = 0
+        self.unknown = False
+        self.incomplete = False
+        self.pending = False
+        self.used = False
+        self.result = {'schema': 1, 'kind': 'publisher-evidence', 'state': 'unavailable',
+                       'writes': False, 'actionable': False, 'activationAuthorized': False,
+                       'recoveryAuthorized': False, 'snapshotStable': None, 'validation': 'structural-only',
+                       'coverage': {key: 'not-checked' for key in ('state', 'lock', 'targets', 'registry', 'reviews', 'transactions', 'roots', 'retired', 'active')},
+                       'registry': None,
+                       'reviews': {'retained': None, 'counts': {}, 'rows': [], 'omittedRows': None, 'unknownRecords': None},
+                       'transactions': {'retained': None, 'counts': {}, 'rows': [], 'omittedRows': None, 'unknownRecords': None},
+                       'roots': {'count': None}, 'retired': {'count': None},
+                       'pendingFiles': {'observed': 0, 'coverage': 'not-checked'},
+                       'targets': {}, 'reasons': [],
+                       'notChecked': ['ownership', 'root-registration', 'artifact-contents',
+                                      'profiles', 'app', 'processes', 'backups', 'readiness', 'library',
+                                      'uncommitted-payloads', 'deep-record-bindings', 'cross-record-consistency']}
+
+    def _path(self, name): return STATE + '/' + name
+
+    @staticmethod
+    def _identity(s):
+        return (s.st_dev, s.st_ino, s.st_uid, s.st_mode, s.st_nlink, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+
+    def _node(self, relative):
+        try:
+            with self.fs.parent(relative) as (fd, name):
+                try: s = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                except FileNotFoundError: s = None
+        except FileNotFoundError: s = None
+        value = None
+        if s is not None:
+            require(s.st_uid == self.fs.uid and (stat.S_ISDIR(s.st_mode) or s.st_nlink == 1), 'Unsafe evidence node')
+            kind = 'directory' if stat.S_ISDIR(s.st_mode) else 'file' if stat.S_ISREG(s.st_mode) else 'link' if stat.S_ISLNK(s.st_mode) else 'other'
+            value = {'kind': kind, 'mode': s.st_mode, 'size': s.st_size, 'identity': self._identity(s)}
+        if relative in self.seen: require(self.seen[relative] == value, 'Evidence changed')
+        else: self.seen[relative] = value
+        return value
+
+    def _directory(self, relative):
+        node = self._node(relative)
+        require(node is not None and node['kind'] == 'directory' and not node['mode'] & 0o077, 'Private evidence directory unavailable')
+        return self.fs.names(relative)  # Existing no-create bounded inventory only.
+
+    def _record(self, relative):
+        node = self._node(relative)
+        require(node is not None and node['kind'] == 'file' and not node['mode'] & 0o077, 'Private evidence record unavailable')
+        data = self.fs.read(relative)
+        self.bytes += len(data); require(self.bytes <= 20 * 1024 ** 2, 'Inspection byte budget')
+        self._node(relative)
+        return object_json(data)
+
+    def _unknown(self, reason):
+        self.unknown = True
+        if reason not in self.result['reasons']: self.result['reasons'].append(reason)
+
+    @staticmethod
+    def _artifact(record):
+        return record is None or (type(record) is dict and set(record) == {'path', 'hash', 'revision', 'directory'}
+                and all(type(record[k]) is str and len(record[k]) <= 1024 for k in record)
+                and HEX.fullmatch(record['hash']) and REV.fullmatch(record['revision']))
+
+    def _registry(self):
+        row = self._record(self._path('registry.json'))
+        require(set(row) == {'schema', 'owner', 'current', 'lastTransaction', 'pending'}
+                and type(row['schema']) is int and row['schema'] == 1
+                and type(row['owner']) is str and row['owner'] in ('dedicated-v1', 'transferred-to-hm')
+                and self._artifact(row['current'])
+                and all(row[k] is None or type(row[k]) is str and ID.fullmatch(row[k])
+                        for k in ('pending', 'lastTransaction')), 'Unknown registry shape')
+        self.result['registry'] = {'owner': row['owner'], 'currentRecorded': row['current'] is not None,
+                                   'pending': row['pending'] is not None, 'lastTransactionRecorded': row['lastTransaction'] is not None}
+        self.incomplete |= row['pending'] is not None
+
+    def _valid_row(self, namespace, row, name):
+        require(row.get('id') == name[:-5], 'Evidence ID differs')
+        if namespace == 'reviews':
+            require(set(row) == {'id', 'status', 'rollback', 'artifact', 'binding', 'boot', 'mono', 'utc'}
+                    and type(row['status']) is str and row['status'] in self.REVIEW
+                    and type(row['rollback']) is bool and self._artifact(row['artifact'])
+                    and type(row['binding']) is dict and type(row['boot']) is str and 0 < len(row['boot']) <= 128
+                    and all(type(row[k]) in (int, float) and math.isfinite(row[k]) and row[k] >= 0 for k in ('mono', 'utc')),
+                    'Unknown review shape')
+            return row['status']
+        require(type(row.get('phase')) is str and row['phase'] in self.PHASES, 'Unknown transaction phase')
+        if row['phase'] in ('transfer-recorded', 'transferred'):
+            require(set(row) == {'id', 'phase', 'before', 'after', 'generation'} and type(row['generation']) is str
+                    and len(row['generation']) <= 1024, 'Unknown transfer record shape')
+        else:
+            required = {'id', 'phase', 'before', 'after', 'rollbackTarget', 'rollback', 'backup', 'noOp'}
+            require(set(row) in (required, required | {'ownership'}) and type(row['rollback']) is bool
+                    and type(row['noOp']) is bool and self._artifact(row['rollbackTarget'])
+                    and ('ownership' not in row or type(row['ownership']) is dict), 'Unknown transaction shape')
+            backup = row['backup']
+            require(backup is None or type(backup) is dict and set(backup) == {'id', 'hash'}
+                    and type(backup['id']) is str and ID.fullmatch(backup['id'])
+                    and type(backup['hash']) is str and HEX.fullmatch(backup['hash']), 'Unknown backup reference shape')
+        require(self._artifact(row['before']) and self._artifact(row['after']), 'Unknown transaction artifact shape')
+        return row['phase']
+
+    def _inventory(self, namespace):
+        names = self._directory(self._path(namespace))
+        counts = {}; rows = []; retained = 0; partial = False; unknown = 0; valid = 0
+        for name in names:
+            if re.fullmatch(r'\.pending-[a-f0-9]{32}', name):
+                self.result['pendingFiles']['observed'] += 1; self.incomplete = True
+                continue  # Never read or interpret an uncommitted pending payload.
+            if not re.fullmatch(r'[a-f0-9]{32}\.json', name):
+                self._unknown('unknown-evidence-name'); partial = True; continue
+            retained += 1
+            try:
+                row = self._record(self._path(namespace + '/' + name))
+                value = self._valid_row(namespace, row, name); valid += 1
+                counts[value] = counts.get(value, 0) + 1
+                if namespace == 'reviews':
+                    self.incomplete |= value == 'blocked'; self.pending |= value == 'pending'
+                else: self.incomplete |= value not in TERMINAL
+                if len(rows) < 50:
+                    rows.append({'referenceSha256': digest((namespace + '/' + name).encode()),
+                                 'status' if namespace == 'reviews' else 'phase': value})
+            except Exception:
+                partial = True; unknown += 1; self._unknown('unreadable-or-unknown-record')
+        self.result[namespace] = {'retained': retained, 'counts': counts, 'rows': rows,
+                                  'omittedRows': max(0, valid - len(rows)), 'unknownRecords': unknown}
+        self.result['coverage'][namespace] = 'partial' if partial else 'complete'
+
+    def _links(self, namespace, pattern):
+        names = self._directory(self._path(namespace))
+        for name in names:
+            require(re.fullmatch(pattern, name), 'Unknown link evidence name')
+            require(self._node(self._path(namespace + '/' + name))['kind'] == 'link', 'Unknown link evidence type')
+        self.result[namespace]['count'] = len(names)
+
+    def _finish(self):
+        try:
+            for relative in list(self.seen): self._node(relative)
+            self.result['snapshotStable'] = True
+        except Exception:
+            self.result['snapshotStable'] = False
+            self.result['state'] = 'changed'
+            self.result['reasons'] = ['evidence-changed-or-unavailable']
+        return self.result
+
+    def inspect(self):
+        require(not self.used, 'Create a fresh evidence inspector for a new read')
+        self.used = True
+        lock = None
+        try:
+            for name, target in TARGETS.items():
+                node = self._node(target)
+                self.result['targets'][name] = 'absent' if node is None else node['kind'] + '-observed'
+            self.result['coverage']['targets'] = 'metadata-only'
+            root = self._node(STATE)
+            if root is None:
+                self.result['state'] = 'absent' if all(x == 'absent' for x in self.result['targets'].values()) else 'unknown'
+                self.result['coverage']['state'] = 'absent'
+                self.result['pendingFiles']['coverage'] = 'absent'
+                return self._finish()
+            names = self._directory(STATE)
+            self.result['coverage']['state'] = 'present'
+            allowed = {'lock', 'registry.json', 'reviews', 'transactions', 'roots', 'retired', 'active'}
+            for name in names:
+                if re.fullmatch(r'\.pending-[a-f0-9]{32}', name):
+                    self.result['pendingFiles']['observed'] += 1; self.incomplete = True
+                elif name not in allowed: self._unknown('unknown-state-name')
+            node = self._node(self._path('lock'))
+            require(node is not None and node['kind'] == 'file' and node['size'] == 0
+                    and not node['mode'] & 0o077, 'Existing private lock unavailable')
+            with self.fs.parent(self._path('lock')) as (fd, name):
+                lock = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+            require(self._identity(os.fstat(lock)) == node['identity'], 'Lock changed')
+            try: fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            except BlockingIOError:
+                self.result['state'] = 'busy'; self.result['reasons'] = ['publisher-busy']
+                self.result['coverage']['lock'] = 'busy'
+                return self.result
+            self.result['coverage']['lock'] = 'shared-existing'
+            for namespace, read in [('registry', self._registry),
+                                    ('reviews', lambda: self._inventory('reviews')),
+                                    ('transactions', lambda: self._inventory('transactions')),
+                                    ('roots', lambda: self._links('roots', r'[a-f0-9]{64}')),
+                                    ('retired', lambda: self._links('retired', r'[a-f0-9]{32}'))]:
+                try:
+                    read()
+                    if self.result['coverage'][namespace] == 'not-checked': self.result['coverage'][namespace] = 'complete'
+                except Exception:
+                    self.result['coverage'][namespace] = 'unavailable'
+                    self._unknown('unavailable-evidence')
+            try:
+                active = self._node(self._path('active'))
+                if active is not None and active['kind'] != 'link': self._unknown('unknown-active-node')
+                self.result['coverage']['active'] = 'metadata-only'
+            except Exception:
+                self.result['coverage']['active'] = 'unavailable'; self._unknown('unavailable-active-node')
+            self.result['pendingFiles']['coverage'] = 'complete' if all(self.result['coverage'].get(k) == 'complete'
+                                                                     for k in ('reviews', 'transactions')) else 'partial'
+            self.result['state'] = 'unknown' if self.unknown else 'incomplete' if self.incomplete else 'pending' if self.pending else 'observed'
+            return self._finish()
+        except Exception:
+            self.result['state'] = 'unavailable'; self.result['reasons'] = ['unsafe-or-unavailable-evidence']
+            return self.result
+        finally:
+            if lock is not None: os.close(lock)
+
+
 class SafeParser(argparse.ArgumentParser):
     def error(self, message):
         raise Refusal("Invalid arguments")
@@ -729,10 +950,11 @@ class SafeParser(argparse.ArgumentParser):
 
 def main(argv=None):
     parser = SafeParser(description=__doc__)
-    parser.add_argument("mode", choices=["inspect", "review", "apply", "review-rollback", "rollback", "discard-review", "transfer"])
+    parser.add_argument("mode", choices=["inspect", "inspect-state", "review", "apply", "review-rollback", "rollback", "discard-review", "transfer"])
     parser.add_argument("--manifest")
     parser.add_argument("--expected-manifest-sha256")
     parser.add_argument("--expected-source-revision")
+    parser.add_argument("--expected-publisher-sha256")
     parser.add_argument("--activation-plan")
     parser.add_argument("--expected-plan-sha256")
     parser.add_argument("--api-token-fd", type=int)
@@ -740,13 +962,18 @@ def main(argv=None):
     parser.add_argument("--approve", action="store_true")
     try:
         args = parser.parse_args(argv)
+        if args.mode == 'inspect-state':
+            from jukebox_cli import inspect_state
+            print(json.dumps(inspect_state(args), sort_keys=True))
+            return 0
         if args.mode != 'inspect':
+            require(args.expected_publisher_sha256 is None, 'Read-only publisher pin is not activation authority')
             require(args.approve and args.activation_plan and args.expected_plan_sha256,
                     'No native operation without independent plan and explicit approval')
             from jukebox_cli import run
             print(json.dumps(run(args),sort_keys=True))
             return 0
-        require(not args.approve and not args.activation_plan and args.api_token_fd is None
+        require(not args.approve and not args.activation_plan and args.expected_publisher_sha256 is None and args.api_token_fd is None
                 and args.review_id is None and not args.expected_plan_sha256, 'Artifact inspect is read-only')
         require(args.manifest and args.expected_manifest_sha256 and args.expected_source_revision,
                 "Independent manifest/source pins required")

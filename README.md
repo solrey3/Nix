@@ -189,9 +189,13 @@ SABnzbd runs in the k3s cluster and writes downloads to the NAS-backed `/mnt/ill
 The dedicated `jukeboxConfigurations.bravo` output contains public configuration
 only; it does not activate a host/profile or add Home Manager declarations.
 The [guarded publisher and limitations](docs/jukebox-playback.md) document its
-fixture-tested core/native evidence contracts. Native modes require a separately
-approved, hash-pinned private activation plan, explicit credential FD and a
-coordinated operator window—not an atomic app lease. Production compatibility
+fixture-tested core/native evidence contracts. Mutating native modes require a
+separately approved, hash-pinned private activation plan, explicit credential FD
+and a coordinated operator window—not an atomic app lease. The separate
+`inspect-state` interface needs explicit read-only approval and an independent
+publisher code pin; it only reports bounded local metadata with an existing shared
+lock, no helpers/credentials or recovery actions. Neither source interface is
+permission for a live invocation. Production compatibility
 and backup preparation remain unproven/unshipped; no live use, merge or
 service/configuration change is authorized by evaluation or a source PR.
 Normal update validation policy below remains unchanged; the

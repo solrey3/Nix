@@ -1,15 +1,17 @@
-"""Gated native entry point. Never called by artifact-only inspection.
+"""Separate gated local-inspection and mutating-native entry points.
 
-Source implementation does not authorize use. An independently approved private
-plan and credential FD are mandatory, with an explicit coordinated window, not
-an app lease. There are no production path/runner/adapter overrides.
+Neither is called by artifact-only inspection. Local evidence inspection needs
+explicit read-only approval and an independent five-file code pin, no adapters.
+Mutations still require the approved private plan, credential FD and coordinated
+window (not an app lease). Source publication authorizes neither live operation.
+There are no production path/runner/adapter overrides.
 """
 import os
 import select
 import stat
 import time
 from pathlib import Path
-from jukebox_playback import Artifact, Home, Publisher, Refusal, canonical, digest, object_json, require
+from jukebox_playback import Artifact, EvidenceInspector, HEX, Home, Publisher, Refusal, canonical, digest, object_json, require
 from jukebox_window import WindowAdapter, validate_plan
 from jukebox_native import NativeIO, OwnedRunner, LocalAPI, fixed_paths, safe_file
 
@@ -18,6 +20,20 @@ def code_identity():
     folder = Path(__file__).parent
     return digest(canonical({name: digest((folder/name).read_bytes()) for name in
                              ('jukebox_playback.py','jukebox_window.py','jukebox_native.py','jukebox_backup.py','jukebox_cli.py')}))
+
+
+def inspect_state(args):
+    """Separate read-only approval/pin; never constructs native adapters/helpers."""
+    pin = getattr(args, 'expected_publisher_sha256', None)
+    require(args.mode == 'inspect-state' and args.approve is True and type(pin) is str
+            and HEX.fullmatch(pin) and pin == code_identity(), 'Explicit independently pinned read-only approval required')
+    require(all(getattr(args, key, None) is None for key in ('manifest', 'expected_manifest_sha256',
+                'expected_source_revision', 'activation_plan', 'expected_plan_sha256', 'review_id', 'api_token_fd')),
+            'State inspection cannot consume activation/artifact/credential arguments')
+    paths = fixed_paths()
+    home = Home(paths['home'], paths['uid'])
+    try: return EvidenceInspector(home).inspect()
+    finally: home.close()
 
 
 def token_from_fd(fd):
@@ -42,6 +58,7 @@ def token_from_fd(fd):
 
 
 def run(args):
+    require(getattr(args, 'expected_publisher_sha256', None) is None, 'Read-only publisher pin is not activation authority')
     require(args.mode in ('review','apply','review-rollback','rollback','discard-review'),
             'Live HM transfer/recovery controller not included')
     require(args.approve is True and args.activation_plan and args.expected_plan_sha256,
