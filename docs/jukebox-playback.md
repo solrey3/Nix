@@ -310,6 +310,13 @@ source/artifact/root semantics on bravo, ownership/config precedence and exact
 activation/recovery procedure still need separate review and operator approval.
 Fixtures are not deployment evidence. No merge or live action is authorized here.
 
+The [proposed recovery/transfer contract](jukebox-recovery-transfer-contract.md)
+(#128) separates a bounded baseline from any future blocked-admission release or
+ownership rebinding. It documents missing proof/legacy limitations and the policy
+choice required before writing controllers. It is design only, not an accepted
+schema, admission exemption, live procedure or implementation approval extension.
+Quarantine/manual blocking remains the default.
+
 ## Scoped validation (one-time operator exception)
 
 The operator authorized **one feature-PR exception** to README/host-settings update
