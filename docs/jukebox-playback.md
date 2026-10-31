@@ -157,7 +157,10 @@ individual metadata/API/command outputs have separate finite bounds.
 ### Whole-group ownership and closure (Jukebox #126)
 
 Manager ownership checks read the child list of **every bounded known Node
-thread**, not just the main thread. The only optional child is the expected
+thread**, not just the main thread. A settled idle manager may have zero or one
+known `WorkerThread` (the loader need not remain persistent); more than one or
+any unknown thread name still refuses. Exact main-thread identity, all task
+children, active-job observations and whole-cgroup checks remain mandatory. The only optional child is the expected
 esbuild executable/arguments; all of its bounded thread child lists must be
 empty, including descendants that might have left the unit's group. Active
 cgroup membership must be exactly the manager plus that known compiler. Main

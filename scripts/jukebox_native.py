@@ -357,7 +357,7 @@ class NativeIO:
             require(len(threads) < 128 and entry.name.isascii() and entry.name.isdecimal()
                     and len(entry.name) <= 10 and str(int(entry.name)) == entry.name and int(entry.name) > 1, "Thread inventory bound/identity")
             threads.append((entry / 'comm').read_text().strip()); tasks.append(entry)
-        require(threads.count('WorkerThread') == 1 and threads.count('MainThread') == 1
+        require(threads.count('WorkerThread') <= 1 and threads.count('MainThread') == 1
                 and (proc / 'task' / pid) in tasks and threads[tasks.index(proc / 'task' / pid)] == 'MainThread'
                 and all(x in ('MainThread', 'DelayedTaskSche', 'V8Worker',
                 'SignalInspector', 'WorkerThread', 'libuv-worker') for x in threads), "Unexpected worker ownership")

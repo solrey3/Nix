@@ -154,6 +154,37 @@ class NativeFixture:
 
 
 class NativeFixtureTests(unittest.TestCase):
+    def test_idle_manager_zero_or_one_loader_worker_both_support_full_lifecycle(self):
+        for loader_worker in (False,True):
+            with self.subTest(loader_worker=loader_worker):
+                x=NativeFixture()
+                try:
+                    def remove_loader():
+                        worker=x.paths['proc']/str(x.pid)/'task'/str(x.pid+1000)
+                        shutil.rmtree(worker)
+                    if not loader_worker:
+                        remove_loader();x.on_start=remove_loader
+                    x.seal_backup();x.f.publisher.adapter=x.make_adapter(x.f.a)
+                    r=x.f.publisher.review(x.f.a,approve=True);x.f.publisher.apply(r['id'],approve=True)
+                    self.assertEqual(x.f.publisher.inspect()['state'],'owned')
+                    x.f.publisher.adapter=x.make_adapter(None)
+                    r=x.f.publisher.review(None,approve=True,rollback=True);x.f.publisher.apply(r['id'],approve=True,rollback=True)
+                    self.assertEqual(x.f.publisher.inspect()['state'],'empty')
+                finally:x.close()
+
+    def test_extra_or_unknown_worker_threads_still_refuse_without_service_action(self):
+        for case in ('extra','unknown'):
+            with self.subTest(case=case):
+                x=NativeFixture()
+                try:
+                    if case=='extra':
+                        task=x.paths['proc']/str(x.pid)/'task'/str(x.pid+1001)
+                        task.mkdir();(task/'comm').write_text('WorkerThread');(task/'children').write_text('')
+                    else:(x.paths['proc']/str(x.pid)/'task'/str(x.pid+1000)/'comm').write_text('ForeignWorker')
+                    with self.assertRaises(p.Refusal):x.io.observe()
+                    self.assertFalse(any('stop' in args for tool,args in x.calls))
+                finally:x.close()
+
     def test_exact_stop_safety_dropin_is_bound_across_install_and_rollback(self):
         x=NativeFixture()
         try:
