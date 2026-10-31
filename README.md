@@ -185,6 +185,28 @@ SABnzbd runs in the k3s cluster and writes downloads to the NAS-backed `/mnt/ill
 
 `reorganize_tv_for_jellyfin.py` migrates top-level TV release folders into Jellyfin's `Series/Season NN` layout. It performs a dry run unless passed `--apply`.
 
+## Jukebox playback artifact (draft, non-activating)
+
+The [recovery/transfer contract proposal](docs/jukebox-recovery-transfer-contract.md)
+records the remaining completion-scope/admission decision (#128), not a controller
+or authorization to release blocked state. Quarantine remains the default.
+
+The dedicated `jukeboxConfigurations.bravo` output contains public configuration
+only; it does not activate a host/profile or add Home Manager declarations.
+The [guarded publisher and limitations](docs/jukebox-playback.md) document its
+fixture-tested core/native evidence contracts. Mutating native modes require a
+separately approved, hash-pinned private activation plan, explicit credential FD
+and a coordinated operator window—not an atomic app lease. The separate
+`inspect-state` interface needs explicit read-only approval and an independent
+publisher code pin; it only reports bounded local metadata with an existing shared
+lock, no helpers/credentials or recovery actions. Neither source interface is
+permission for a live invocation. Production compatibility
+and backup preparation remain unproven/unshipped; no live use, merge or
+service/configuration change is authorized by evaluation or a source PR.
+Normal update validation policy below remains unchanged; the
+one-time scoped feature-validation exception is recorded in that guide and
+Jukebox issue #121.
+
 ## Development and validation
 
 Enter the development shell for `nil`, `nixpkgs-fmt`, and `statix`:
