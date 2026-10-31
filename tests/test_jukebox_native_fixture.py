@@ -154,6 +154,46 @@ class NativeFixture:
 
 
 class NativeFixtureTests(unittest.TestCase):
+    def test_exact_stop_safety_dropin_is_bound_across_install_and_rollback(self):
+        x=NativeFixture()
+        try:
+            safety=x.fragment.parent/'jukebox-manager.service.d/80-stop-safety.conf'
+            safety.parent.mkdir(mode=0o700);safety.write_bytes(b'[Service]\nSendSIGKILL=no\n');safety.chmod(0o600)
+            original=x.unit
+            x.unit=lambda name: {**original(name), 'DropInPaths': ' '.join(filter(None,[str(safety),original(name)['DropInPaths']]))} if name==n.UNIT else original(name)
+            first=x.io.observe()['unit']
+            x.seal_backup();x.f.publisher.adapter=x.make_adapter(x.f.a)
+            r=x.f.publisher.review(x.f.a,approve=True);x.f.publisher.apply(r['id'],approve=True)
+            self.assertEqual(x.f.publisher.inspect()['state'],'owned')
+            self.assertEqual(x.io.observe()['unit'],first)
+            x.f.publisher.adapter=x.make_adapter(None)
+            r=x.f.publisher.review(None,approve=True,rollback=True);x.f.publisher.apply(r['id'],approve=True,rollback=True)
+            self.assertEqual(x.f.publisher.inspect()['state'],'empty')
+            self.assertEqual(safety.read_bytes(),b'[Service]\nSendSIGKILL=no\n')
+        finally:x.close()
+
+    def test_stop_safety_unknown_unloaded_unsafe_or_changed_bytes_refuse(self):
+        for case in ('bytes','symlink','hardlink','permissions','unloaded','duplicate','missing'):
+            with self.subTest(case=case):
+                x=NativeFixture()
+                try:
+                    safety=x.fragment.parent/'jukebox-manager.service.d/80-stop-safety.conf'
+                    safety.parent.mkdir(mode=0o700)
+                    if case!='missing':
+                        safety.write_bytes(b'[Service]\nSendSIGKILL=no\n');safety.chmod(0o600)
+                    original=x.unit
+                    listed=str(safety) if case!='unloaded' else ''
+                    if case=='duplicate':listed+=' '+str(safety)
+                    x.unit=lambda name: {**original(name),'DropInPaths':listed} if name==n.UNIT else original(name)
+                    if case=='bytes':safety.write_bytes(b'[Service]\nSendSIGKILL=no\nRestart=always\n')
+                    if case=='symlink':
+                        safety.unlink();safety.symlink_to(x.fragment)
+                    if case=='hardlink':os.link(safety,safety.parent/'other')
+                    if case=='permissions':safety.chmod(0o644)
+                    with self.assertRaises((p.Refusal,OSError)):x.io.observe()
+                    self.assertFalse(any('stop' in args for tool,args in x.calls))
+                finally:x.close()
+
     def test_all_native_readers_backup_stop_closure_and_ready_with_fake_commands(self):
         x=NativeFixture()
         try:

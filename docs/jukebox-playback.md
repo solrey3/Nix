@@ -186,6 +186,16 @@ The actual stop policy must be `SendSIGKILL=no`, `KillMode=control-group` before
 eligibility. **Compatibility with installed bravo has not been probed.** A
 failure here is a blocker, not permission to change the unit or weaken policy.
 
+Under explicit #131 approval, the separately tracked manager-only
+`80-stop-safety.conf` may be loaded alongside the canonical playback drop-in.
+It must be a private, single-link, no-follow regular file containing exactly
+`[Service]` and `SendSIGKILL=no` with final newlines. Its filesystem identity and
+content digest join the base-unit evidence; it is not an arbitrary drop-in
+allowance. Duplicate, foreign, missing, unloaded, unsafe or modified safety files
+refuse. Initial empty playback may include this safety file, but no playback
+configuration. Publication and rollback preserve it; no policy installation,
+profile activation or new service action is added to the publisher.
+
 Owned subprocesses use fixed trusted tool locations, bounded combined output,
 no shell, no kill/retry and mandatory actual-exit drain. Root preparation forbids
 package build/substitution fallback and independently queries manifest references
