@@ -39,7 +39,10 @@ class OwnedRunner:
         env = {'PATH': '/run/current-system/sw/bin', 'HOME': self.home, 'USER': 'budchris',
                'LANG': 'C.UTF-8', 'XDG_RUNTIME_DIR': f'/run/user/{self.uid}',
                'DBUS_SESSION_BUS_ADDRESS': f'unix:path=/run/user/{self.uid}/bus', 'NIX_REMOTE': 'daemon'}
-        proc = subprocess.Popen([self.tools[name], *args], stdin=subprocess.DEVNULL,
+        # Pin the resolved executable, but preserve its approved multicall name.
+        # Nix's nix-store symlink resolves to nix; argv[0]=.../nix selects the
+        # wrong CLI even though the same trusted executable is launched.
+        proc = subprocess.Popen([name, *args], executable=self.tools[name], stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
         os.set_blocking(proc.stdout.fileno(), False)
         self.pending.append(proc)

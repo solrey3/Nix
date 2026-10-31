@@ -196,7 +196,9 @@ refuse. Initial empty playback may include this safety file, but no playback
 configuration. Publication and rollback preserve it; no policy installation,
 profile activation or new service action is added to the publisher.
 
-Owned subprocesses use fixed trusted tool locations, bounded combined output,
+Owned subprocesses pin resolved trusted executables while preserving the fixed
+approved command basename in `argv[0]` (notably Nix's `nix-store` multicall alias).
+No caller may choose that alias, executable or environment. They use bounded combined output,
 no shell, no kill/retry and mandatory actual-exit drain. Root preparation forbids
 package build/substitution fallback and independently queries manifest references
 and actual root registration. No GC/purge/profile/build command is exposed.
