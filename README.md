@@ -190,6 +190,9 @@ SABnzbd runs in the k3s cluster and writes downloads to the NAS-backed `/mnt/ill
 The [recovery/transfer contract proposal](docs/jukebox-recovery-transfer-contract.md)
 records the remaining completion-scope/admission decision (#128), not a controller
 or authorization to release blocked state. Quarantine remains the default.
+The [case #135 completion design](docs/jukebox-case135-completion-design.md) and
+synthetic claim/refusal fixtures distinguish external acceptance from future
+native admission; they add no controller, supported schema or live authority.
 
 The dedicated `jukeboxConfigurations.bravo` output contains public configuration
 only; it does not activate a host/profile or add Home Manager declarations.
