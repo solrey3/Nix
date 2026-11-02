@@ -157,7 +157,10 @@ individual metadata/API/command outputs have separate finite bounds.
 ### Whole-group ownership and closure (Jukebox #126)
 
 Manager ownership checks read the child list of **every bounded known Node
-thread**, not just the main thread. The only optional child is the expected
+thread**, not just the main thread. A settled idle manager may have zero or one
+known `WorkerThread` (the loader need not remain persistent); more than one or
+any unknown thread name still refuses. Exact main-thread identity, all task
+children, active-job observations and whole-cgroup checks remain mandatory. The only optional child is the expected
 esbuild executable/arguments; all of its bounded thread child lists must be
 empty, including descendants that might have left the unit's group. Active
 cgroup membership must be exactly the manager plus that known compiler. Main
@@ -186,7 +189,19 @@ The actual stop policy must be `SendSIGKILL=no`, `KillMode=control-group` before
 eligibility. **Compatibility with installed bravo has not been probed.** A
 failure here is a blocker, not permission to change the unit or weaken policy.
 
-Owned subprocesses use fixed trusted tool locations, bounded combined output,
+Under explicit #131 approval, the separately tracked manager-only
+`80-stop-safety.conf` may be loaded alongside the canonical playback drop-in.
+It must be a private, single-link, no-follow regular file containing exactly
+`[Service]` and `SendSIGKILL=no` with final newlines. Its filesystem identity and
+content digest join the base-unit evidence; it is not an arbitrary drop-in
+allowance. Duplicate, foreign, missing, unloaded, unsafe or modified safety files
+refuse. Initial empty playback may include this safety file, but no playback
+configuration. Publication and rollback preserve it; no policy installation,
+profile activation or new service action is added to the publisher.
+
+Owned subprocesses pin resolved trusted executables while preserving the fixed
+approved command basename in `argv[0]` (notably Nix's `nix-store` multicall alias).
+No caller may choose that alias, executable or environment. They use bounded combined output,
 no shell, no kill/retry and mandatory actual-exit drain. Root preparation forbids
 package build/substitution fallback and independently queries manifest references
 and actual root registration. No GC/purge/profile/build command is exposed.

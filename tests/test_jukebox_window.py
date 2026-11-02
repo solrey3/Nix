@@ -153,6 +153,17 @@ class WindowTests(unittest.TestCase):
 
 
 class NativeTests(unittest.TestCase):
+    def test_resolved_multicall_executable_keeps_approved_command_argv0(self):
+        runner=object.__new__(n.OwnedRunner)
+        runner.home='/tmp';runner.uid=os.getuid();runner.tools={'nix-store':sys.executable};runner.pending=[]
+        try:
+            result=runner.run('nix-store',['-c','import pathlib;print(pathlib.Path("/proc/self/cmdline").read_bytes().split(bytes([0]))[0].decode())'])
+            self.assertEqual(result,'nix-store')
+            self.assertEqual(runner.tools['nix-store'],sys.executable)
+            self.assertEqual(runner.pending,[])
+            with self.assertRaises(p.Refusal):runner.run('foreign',['--version'])
+        finally:runner.drain()
+
     def test_owned_runner_timeout_overflow_drain_no_kill_or_retry(self):
         for args,limit in ((['-c','import time;time.sleep(.15)'],100),
                            (['-c','import time;print("x"*5000,flush=True);time.sleep(.15)'],10)):
