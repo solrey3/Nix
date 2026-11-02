@@ -331,6 +331,10 @@ ownership rebinding. It documents missing proof/legacy limitations and the polic
 choice required before writing controllers. It is design only, not an accepted
 schema, admission exemption, live procedure or implementation approval extension.
 Quarantine/manual blocking remains the default.
+The [case #135 design and synthetic fixtures](jukebox-case135-completion-design.md)
+address the later #131 post-publication incident as source-only design: corrected
+observations/external reports cannot complete the original journal. No runtime
+admission exemption, release writer or actual evidence assessment is delivered.
 
 ## Scoped validation (one-time operator exception)
 
