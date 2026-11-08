@@ -125,6 +125,29 @@ class ClaimsModelTests(unittest.TestCase):
             self.assertNotIn('completion_contract_fixtures', path.read_text())
 
 
+class NativeRecordCoverageTests(unittest.TestCase):
+    def test_healthy_v1_records_links_not_postpublication_parent_identity(self):
+        x = NativeFixture()
+        try:
+            x.seal_backup(); x.f.publisher.adapter = x.make_adapter(x.f.a)
+            review = x.f.publisher.review(x.f.a, approve=True)
+            before = json.loads(x.f.fs.read(p.STATE + '/reviews/' + review['id'] + '.json'))
+            self.assertIsNone(before['binding']['owned']['parents']['playback.env']['.config/jukebox'])
+            result = x.f.publisher.apply(review['id'], approve=True)
+            self.assertEqual(result['phase'], 'verified')
+            transaction = json.loads(x.f.fs.read(p.STATE + '/transactions/' + review['id'] + '.json'))
+            self.assertEqual(set(transaction['ownership']), {'targets', 'active'})
+            with x.f.publisher.lock(shared=True):
+                owned = x.f.publisher._owned(x.f.publisher._registry())
+            self.assertEqual(owned['targets'], transaction['ownership']['targets'])
+            self.assertEqual(owned['active'], transaction['ownership']['active'])
+            self.assertIsNotNone(owned['parents']['playback.env']['.config/jukebox'])
+            self.assertNotIn('parents', transaction['ownership'])
+            # This documents native coverage, NOT permission to supply a missing
+            # terminal ownership record or to release a post-publication block.
+        finally: x.close()
+
+
 class CurrentRuntimeRefusalTests(unittest.TestCase):
     def setUp(self):
         self.x = NativeFixture(); x = self.x

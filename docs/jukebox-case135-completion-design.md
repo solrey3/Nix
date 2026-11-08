@@ -31,8 +31,10 @@ attempt evidence directory referenced on #131. Sealed backup ID
 instruction. No private record contents, paths chosen by a record, token or
 operational payload is included in the fixtures.
 
-This design does NOT re-read those files, inspect the live system or establish
-that dated observations still hold. The old publication code writes transaction
+The initial 2 November source-only design did NOT re-read those files, inspect
+the live system or establish that dated observations still held. See the later
+8 November partial-assessment findings below; they do not establish full current
+eligibility or real-case admissibility. The old publication code writes transaction
 `ownership` only AFTER readiness succeeds; the false rejection therefore does
 not leave a normal native terminal ownership record. An external snapshot must
 not be silently treated as that missing record. Source analysis can define a
@@ -188,13 +190,64 @@ fresh current identity continuity, proof producer availability, or a safe comple
 storage/acknowledgement protocol. Existing records do not provide all facts by
 mere existence. Missing historical provenance cannot be manufactured now.
 
-After source review, a separately specified/approved bounded READ-ONLY evidence
-assessment could determine whether independently selected retained reports and
-current facts meet this contract; report each gap/refusal without mutation. If
-required proof cannot be established, keep the incident blocked. No actual
+A separately specified/approved bounded READ-ONLY assessment has since examined
+selected historical/current metadata (findings below), without mutation or full
+eligibility proof. Further private reads need their own exact scope and a useful
+evidence question; repeated inspection cannot reconstruct unrecorded history.
+If required proof cannot be established, keep the incident blocked. No actual
 write-capable implementation, supported admission exception or live completion
 follows from approval of these docs/tests. Those need their exact contract,
 effects, source tests/fault coverage and explicit approval separately.
+
+### 8 November partial assessment and producer-coverage finding
+
+The explicitly approved bounded read-only assessment (see #135) observed matching
+original journal content, target/active identity fields, canonical artifact and
+registered root. Selected service metadata was active with expected policy and
+drop-ins. Boot/service timestamps subsequently explained the changed invocation:
+bravo booted on 8 November and Jukebox started shortly afterward; this is not a
+service-crash finding. Full current process/API/data/backup eligibility was outside
+that scope and remains unassessed. No state or service change was made.
+
+The assessment could not authenticate historical verifier execution/provenance or
+a parent created during publication. Newly computed fingerprints do not establish
+historical authenticity. **However, do not misclassify native format omissions as
+proof of damage:** even a healthy v1 terminal transaction persists `ownership`
+with ONLY target/active snapshots. `_owned()` checks those exact recorded link
+identities and CURRENT trusted ancestry; the review binding carries PRE-publication
+parent identities. A newly created parent had no inode then. V1 never persisted
+its postpublication parent identity, even on successful installs. The new synthetic
+healthy-coverage test establishes this source-format fact, not real-case release.
+
+Consequently, the historical-parent-equality condition in section 3 is a proposed
+STRONGER condition than the healthy v1 ownership format provides. Repeated probes
+cannot recover an identity that format never recorded. This is a design/policy
+question, not a reason to repair a directory or repeatedly request old evidence.
+The failed case still genuinely lacks terminal native target/active ownership;
+a source-format explanation does not create that missing terminal record.
+
+Two explicitly distinct policies remain available for review, not implementation:
+
+- **Keep the draft's stronger historical-parent requirement:** this real case
+  remains unqualified unless independently retained historical evidence exists.
+  Do not assert continuity from today's parent inode.
+- **Propose a v1-compatible EXTERNAL acceptance standard:** require exact retained
+  target/active identity continuity, canonical rooted artifact, all recorded
+  preexisting-parent checks and freshly verified trusted current ancestry; label
+  a newly created parent's historical identity `not-recorded`, not `matched`.
+  Independently selected historical execution/audit material could support an
+  explicit operator attestation; current hashes/booleans alone still cannot.
+  This would be a NEW explicitly approved case-specific evidence policy, not a
+  change to v1 admission, a claim of original native success or an automatic
+  waiver. It must not adopt changed target/pointer identities or foreign paths.
+
+The second option has NOT been selected or implemented. It would still need fresh
+current runtime/resource/backup/authorization proof, a fully reviewed successor
+schema and real crash-safe writer/reader protocol, with separate implementation
+and actual-use approvals. The pure claim model is not a validator for it. No
+additional live inspection or source merge is authorized by documenting options.
+#129/#130 remain deferred. Stop here rather than backfilling records or declaring
+an impossible historical field proven.
 
 Until then, #131 remains blocked for publisher mutation and the last independently
 verified configuration may serve for user testing. Do not infer playback-control
