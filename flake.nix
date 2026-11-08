@@ -120,6 +120,16 @@
         modules = [ ./hosts/echo ];
       };
 
+      # Standalone profile for India's SteamOS installation, not its NixOS SD card.
+      homeConfigurations.india = home-manager.lib.homeManagerConfiguration {
+        pkgs = import nixpkgs {
+          system = "x86_64-linux";
+          config.allowUnfree = true;
+        };
+        extraSpecialArgs = { inherit inputs; };
+        modules = [ ./hosts/india/home-steamos.nix ];
+      };
+
       # Tango deploys every host over Tailscale MagicDNS. Target hosts build
       # their own closures so tango remains an orchestrator rather than a
       # cross-machine build bottleneck.

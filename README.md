@@ -14,7 +14,7 @@ hosts/
   echo/                      Raspberry Pi 5 standalone Home Manager profile
   foxtrot/                   Early-2013 13-inch Retina MacBook Pro running NixOS
   golf/                      Late-2011 15-inch MacBook Pro running NixOS
-  india/                     Steam Deck OLED running NixOS from SD card
+  india/                     Steam Deck OLED: NixOS SD card and SteamOS Home Manager
   juliet/                    M4 Mac mini managed by nix-darwin
   kilo/                      Bootstrap k3s control-plane node
   lima/                      Joining k3s control-plane node
@@ -51,7 +51,7 @@ nix-darwin modules, while `echo` is a standalone Home Manager module.
 | `echo` | Raspberry Pi 5 | Standalone aarch64-linux Home Manager profile |
 | `foxtrot` | Early-2013 13-inch Retina MacBook Pro (MacBookPro10,2), NixOS | XFCE/i3, laptop support, Docker, Tailscale |
 | `golf` | Late-2011 15-inch MacBook Pro (MacBookPro8,2), NixOS | i3/XFCE, laptop support, Docker, Tailscale |
-| `india` | Steam Deck OLED, NixOS on SD card | Plasma, Steam, laptop support, Docker, Tailscale |
+| `india` | Steam Deck OLED, NixOS on SD card / SteamOS | NixOS: Plasma, Steam, laptop support, Docker, Tailscale; SteamOS: standalone x86_64-linux Home Manager for `deck` |
 | `juliet` | 2024 M4 Mac mini, macOS | nix-darwin and Home Manager |
 | `kilo` | k3s bootstrap server and worker | Initializes the embedded-etcd cluster and deploys homelab manifests |
 | `lima` | k3s server and worker | Joins the control plane initialized by `kilo` |
@@ -92,6 +92,19 @@ sudo darwin-rebuild switch --flake .#delta
 sudo darwin-rebuild switch --flake .#juliet
 home-manager switch --flake .#echo
 ```
+
+On India's SteamOS installation, install Nix first, then bootstrap Home Manager
+from this repository as `deck` (without sudo):
+
+```sh
+nix run github:nix-community/home-manager -- switch -b backup --flake .#india
+```
+
+This profile assumes username `deck` and home directory `/home/deck`; adjust
+`hosts/india/home-steamos.nix` if your account differs. The backup option preserves
+existing dotfiles that Home Manager replaces. Open a new terminal after activation;
+subsequent updates use `home-manager switch --flake .#india`.
+This does not change SteamOS or India's separate NixOS SD-card configuration.
 
 Deploy from tango over Tailscale with deploy-rs:
 
